@@ -57,9 +57,9 @@ public final class APCells {
             "extreme_dense_energy_cell", ExtremeDenseEnergyCellBlock::new);
 
     public static final RegistryObject<Item> SUPER_DENSE_ITEM = ITEMS.register(
-            "super_dense_energy_cell", () -> new BlockItem(SUPER_DENSE.get(), new Item.Properties()));
+            "super_dense_energy_cell", () -> new APEnergyCellBlockItem(SUPER_DENSE.get(), new Item.Properties()));
     public static final RegistryObject<Item> EXTREME_DENSE_ITEM = ITEMS.register(
-            "extreme_dense_energy_cell", () -> new BlockItem(EXTREME_DENSE.get(), new Item.Properties()));
+            "extreme_dense_energy_cell", () -> new APEnergyCellBlockItem(EXTREME_DENSE.get(), new Item.Properties()));
 
     public static final RegistryObject<BlockEntityType<EnergyCellBlockEntity>> ENERGY_CELLS =
             BLOCK_ENTITIES.register("energy_cells", () -> {

@@ -1,8 +1,6 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
-  "conditions": [
-    { "type": "forge:mod_loaded", "modid": "powah" }
-  ],
+  "conditions": [ { "type": "forge:mod_loaded", "modid": "powah" } ],
   "pattern": [ " q ", "bcb", " h " ],
   "key": {
     "q": { "tag": "c:quartz_blocks" },

@@ -44,6 +44,10 @@ public final class AppliedPowah {
                     })
                     .displayItems((params, output) -> {
                         try {
+                            output.accept(com.coala.appliedpowah.guide.APGuide.BOOK.get());
+                        } catch (Throwable ignored) {
+                        }
+                        try {
                             output.accept(APCells.SUPER_DENSE_ITEM.get());
                             output.accept(APCells.EXTREME_DENSE_ITEM.get());
                         } catch (Throwable t) {
@@ -70,6 +74,7 @@ public final class AppliedPowah {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         APConfig.register();
         TABS.register(bus);
+        com.coala.appliedpowah.guide.APGuide.register(bus);
         bus.addListener(AppliedPowah::onClientSetup);
 
         boolean ae2 = isLoaded("ae2");

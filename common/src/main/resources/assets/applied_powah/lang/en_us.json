@@ -1,5 +1,11 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
+  "item.applied_powah.guide_book": "Applied Powah Guide",
+  "gui.applied_powah.guide_scroll": "Scroll with mouse wheel",
+  "jei.applied_powah.info_header": "Applied Powah",
+  "jei.applied_powah.rod_craft_note": "Crafted on a workbench (not in the Powah Energizing Orb). See recipes with R.",
+  "jei.applied_powah.rod_place_note": "Place next to an AE2 cable; facing connects to the cable.",
+  "jei.applied_powah.cell_note": "AE2-style energy cell; power is saved when mined.",
   "block.applied_powah.super_dense_energy_cell": "Super Dense Energy Cell",
   "block.applied_powah.extreme_dense_energy_cell": "Extreme Dense Energy Cell",
   "block.applied_powah.ae_energizing_rod_starter": "AE Energizing Rod (Starter)",
@@ -33,3 +39,4 @@
   "item.applied_powah.me_energizing_rod_spirited": "ME Energizing Rod (Spirited)",
   "item.applied_powah.me_energizing_rod_nitro": "ME Energizing Rod (Nitro)"
 }
+

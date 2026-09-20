@@ -1,8 +1,6 @@
-﻿{
+{
   "type": "minecraft:crafting_shaped",
-  "conditions": [
-    { "type": "forge:mod_loaded", "modid": "ae2" }
-  ],
+  "conditions": [ { "type": "forge:mod_loaded", "modid": "ae2" } ],
   "pattern": [ "aaa", "aba", "aaa" ],
   "key": {
     "a": { "item": "applied_powah:super_dense_energy_cell" },

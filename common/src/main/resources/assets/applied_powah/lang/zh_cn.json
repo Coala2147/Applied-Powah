@@ -1,5 +1,11 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
+  "item.applied_powah.guide_book": "Applied Powah 指南",
+  "gui.applied_powah.guide_scroll": "鼠标滚轮翻页",
+  "jei.applied_powah.info_header": "Applied Powah",
+  "jei.applied_powah.rod_craft_note": "工作台合成，不在 Powah「充能」台制作。对本物品按 R 查看配方。",
+  "jei.applied_powah.rod_place_note": "需放在 AE2 线缆旁；facing 朝向线缆接入网络。",
+  "jei.applied_powah.cell_note": "AE2 风格能源元件；挖掘时保留内部 AE。",
   "block.applied_powah.super_dense_energy_cell": "超密能源元件",
   "block.applied_powah.extreme_dense_energy_cell": "极密能源元件",
   "block.applied_powah.ae_energizing_rod_starter": "AE 充能棒（初级）",
@@ -33,3 +39,4 @@
   "item.applied_powah.me_energizing_rod_spirited": "ME 充能棒（富生）",
   "item.applied_powah.me_energizing_rod_nitro": "ME 充能棒（下界）"
 }
+

@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "minecraft:block",
   "pools": [
     {
@@ -9,9 +9,7 @@
           "name": "applied_powah:extreme_dense_energy_cell"
         }
       ],
-      "conditions": [
-        { "condition": "minecraft:survives_explosion" }
-      ]
+      "conditions": [ { "condition": "minecraft:survives_explosion" } ]
     }
   ]
 }
