@@ -1,40 +1,108 @@
-// ============ DRAFT (root) ============
-// Architectury 多 loader 根构建。不单独运行，由各子项目继承。
-// 版本占位见 gradle.properties，联网后核验。
 plugins {
-    id 'java'
-    // Architectury Loom 版本由 settings.gradle pluginManagement 提供；此处 apply false 以便子项目按需启用
-    id 'dev.architectury.loom' version "${architectury_version}" apply false
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
-allprojects {
-    group = project.mod_group
-    version = project.mod_version
-    archivesBaseName = rootProject.name
+version = project.mod_version
+group = project.mod_group
+base.archivesName = "${project.archives_base_name}-${project.mod_version}"
 
-    repositories {
-        mavenCentral()
-        maven { url = "https://maven.architectury.dev/" }
-        maven { url = "https://maven.minecraftforge.net/" }
-        maven { url = "https://maven.neoforged.net/releases/" }
-        maven { url = "https://maven.parchmentmc.org/" }
-        maven { url = "https://cursemaven.com/maven/" }
-        maven { url = "https://api.modrinth.com/maven" }
-    }
-}
+java.toolchain.languageVersion = JavaLanguageVersion.of(project.java_version.toInteger())
 
-subprojects {
-    apply plugin: 'java'
-    apply plugin: 'dev.architectury.loom'
+minecraft {
+    mappings channel: 'official', version: project.minecraft_version
+    copyIdeResources = true
 
-    java {
-        toolchain {
-            languageVersion = JavaLanguageVersion.of(project.java_version.toInteger())
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${project.mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
-        withSourcesJar()
+        client {}
+        server {
+            args '--nogui'
+        }
     }
+}
 
-    tasks.withType(JavaCompile).configureEach {
-        options.encoding = 'UTF-8'
+// MUST include forge/src/main/resources so META-INF/mods.toml is packaged
+sourceSets {
+    main {
+        java {
+            srcDirs = ['common/src/main/java', 'forge/src/main/java']
+        }
+        resources {
+            srcDirs = ['common/src/main/resources', 'forge/src/main/resources']
+        }
     }
+}
+
+repositories {
+    // China mirrors first — avoid proxy when possible
+    maven { url = 'https://maven.aliyun.com/repository/public' }
+    maven { url = 'https://maven.aliyun.com/repository/central' }
+    maven { url = 'https://bmclapi2.bangbang93.com/maven' }
+    maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+    // required for Forge userdev / toolchain
+    mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net/' }
+    maven { url = 'https://maven.parchmentmc.org/' }
+    maven { url = 'https://api.modrinth.com/maven' }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${project.minecraft_version}-${project.forge_version}"
+
+    implementation fg.deobf("maven.modrinth:ae2:${project.ae2_version}")
+    implementation fg.deobf("maven.modrinth:powah:${project.powah_version}")
+    implementation fg.deobf("maven.modrinth:appflux:${project.appflux_version}")
+}
+
+def replaceProps = [
+        minecraft_version: minecraft_version,
+        forge_version    : forge_version,
+        mod_id           : mod_id,
+        mod_name         : mod_name,
+        mod_version      : mod_version,
+]
+
+tasks.named('processResources', ProcessResources).configure {
+    inputs.properties replaceProps
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProps
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+                'Specification-Title'   : mod_id,
+                'Specification-Vendor'  : 'Coala',
+                'Specification-Version' : project.mod_version,
+                'Implementation-Title'  : project.name,
+                'Implementation-Version': project.mod_version,
+                'Implementation-Vendor' : 'Coala',
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
+
+// Copy reobfuscated jar into releases/ — name = AppliedPowah-<mod_version>.jar (keep old jars)
+tasks.register('copyToReleases', Copy) {
+    dependsOn 'reobfJar'
+    from(tasks.named('jar', Jar).flatMap { it.archiveFile })
+    into("${rootProject.projectDir}/releases")
+    rename { "AppliedPowah-${project.mod_version}.jar" }
+}
+tasks.named('build').configure { dependsOn 'copyToReleases' }
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }

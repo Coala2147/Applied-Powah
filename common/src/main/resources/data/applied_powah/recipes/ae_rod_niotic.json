@@ -1,0 +1,13 @@
+﻿{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    { "type": "forge:mod_loaded", "modid": "ae2" },
+    { "type": "forge:mod_loaded", "modid": "powah" }
+  ],
+  "pattern": [ " a ", "aba", " a " ],
+  "key": {
+    "a": { "item": "ae2:energy_cell" },
+    "b": { "item": "powah:energizing_rod_niotic" }
+  },
+  "result": { "item": "applied_powah:ae_energizing_rod_niotic" }
+}

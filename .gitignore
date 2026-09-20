@@ -23,6 +23,10 @@ refs/
 # ===== Assistant working memory (not part of the mod) =====
 .workbuddy/
 
+# ===== Local game / build logs (do not commit) =====
+logs/
+**/logs/
+
 # ===== OS =====
 Thumbs.db
 Desktop.ini

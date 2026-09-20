@@ -1,0 +1,10 @@
+﻿{
+  "variants": {
+    "facing=up":    { "model": "applied_powah:block/ae_energizing_rod_spirited", "x": 180 },
+    "facing=down":  { "model": "applied_powah:block/ae_energizing_rod_spirited" },
+    "facing=south": { "model": "applied_powah:block/ae_energizing_rod_spirited", "x": 90 },
+    "facing=north": { "model": "applied_powah:block/ae_energizing_rod_spirited", "x": 90, "y": 180 },
+    "facing=east":  { "model": "applied_powah:block/ae_energizing_rod_spirited", "x": 90, "y": 270 },
+    "facing=west":  { "model": "applied_powah:block/ae_energizing_rod_spirited", "x": 90, "y": 90 }
+  }
+}

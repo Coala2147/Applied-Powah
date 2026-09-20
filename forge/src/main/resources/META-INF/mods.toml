@@ -1,42 +1,50 @@
-# ============ DRAFT (Forge 1.20.1, ATM9) ============
 modLoader="javafml"
 loaderVersion="[47,)"
-license="TODO: 选定许可证（建议与 AE2 兼容，见设计文档）"
+license="LGPL-3.0-only"
 showAsResourcePack=false
 
 [[mods]]
-modId="appliedpowah"
-version="${file.jarVersion}"
+modId="applied_powah"
+version="${mod_version}"
 displayName="Applied Powah"
-description="AE2 × Powah 缝合：高密度能源元件 + AE/ME 充能棒（AE2 网络部件）"
-authors="LuFH"
-logoFile=""
-useFrontendTranslation=true
+description="AE2 x Powah: high-density energy cells and AE/ME Energizing Rods (AE2 parts) that feed Powah Energizing Orbs. Requires Minecraft 1.20.1 Forge 47+ and Applied Energistics 2."
+authors="Coala"
+displayTest="MATCH_VERSION"
 
-[[dependencies.appliedpowah]]
+# ======================== REQUIRED ========================
+[[dependencies.applied_powah]]
 modId="forge"
-type="required"
+mandatory=true
 versionRange="[47,)"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.appliedpowah]]
+[[dependencies.applied_powah]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
+
+# Hard prerequisite - cannot function without AE2
+[[dependencies.applied_powah]]
 modId="ae2"
-type="optional"
-versionRange="*"
-ordering="NONE"
+mandatory=true
+versionRange="[15.0.0,)"
+ordering="AFTER"
 side="BOTH"
 
-[[dependencies.appliedpowah]]
+# ======================== OPTIONAL ========================
+[[dependencies.applied_powah]]
 modId="powah"
-type="optional"
-versionRange="*"
-ordering="NONE"
+mandatory=false
+versionRange="[5.0.0,)"
+ordering="AFTER"
 side="BOTH"
 
-[[dependencies.appliedpowah]]
+[[dependencies.applied_powah]]
 modId="appflux"
-type="optional"
-versionRange="*"
-ordering="NONE"
+mandatory=false
+versionRange="[1.0.0,)"
+ordering="AFTER"
 side="BOTH"

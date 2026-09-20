@@ -1,0 +1,14 @@
+﻿{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    { "type": "forge:mod_loaded", "modid": "powah" }
+  ],
+  "pattern": [ " q ", "bcb", " h " ],
+  "key": {
+    "q": { "tag": "c:quartz_blocks" },
+    "b": { "item": "powah:capacitor_spirited" },
+    "c": { "item": "powah:dielectric_casing" },
+    "h": { "item": "applied_powah:ae_energizing_rod_niotic" }
+  },
+  "result": { "item": "applied_powah:ae_energizing_rod_spirited" }
+}

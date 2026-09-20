@@ -1,0 +1,6 @@
+﻿{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "applied_powah:block/extreme_dense_energy_cell_4"
+  }
+}

@@ -1,0 +1,9 @@
+﻿{
+  "type": "minecraft:crafting_shapeless",
+  "conditions": [
+    { "type": "forge:mod_loaded", "modid": "powah" },
+    { "type": "forge:mod_loaded", "modid": "appflux" }
+  ],
+  "ingredients": [ { "item": "applied_powah:me_energizing_rod_niotic" } ],
+  "result": { "item": "applied_powah:ae_energizing_rod_niotic" }
+}

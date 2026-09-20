@@ -1,19 +1,18 @@
-// ============ DRAFT ============
-// Architectury 多 loader 模板。版本号均为占位，联网后逐条核验再运行 `gradle wrapper`。
-// 参考：https://github.com/Architectury/architectury-loom-template (1.20.1 分支/标签)
 pluginManagement {
     repositories {
-        mavenCentral()
+        // China mirrors first
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        maven { url = 'https://bmclapi2.bangbang93.com/maven' }
+        // upstream fallback
         gradlePluginPortal()
-        maven { url = "https://maven.architectury.dev/" }          // Architectury Loom / plugin
-        maven { url = "https://maven.minecraftforge.net/" }         // Forge
-        maven { url = "https://maven.neoforged.net/releases/" }     // NeoForge
-        maven { url = "https://maven.parchmentmc.org/" }            // Parchment 映射
-        maven { url = "https://cursemaven.com/maven/" }             // CurseMaven: AE2 / Powah / AppliedFlux
-        maven { url = "https://api.modrinth.com/maven" }            // Modrinth
+        maven { url = 'https://maven.minecraftforge.net/' }
+        maven { url = 'https://maven.parchmentmc.org/' }
     }
 }
 
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
 rootProject.name = 'applied-powah'
-// v2：先只做 Forge（单 loader）。neoforge 暂不建；日后如需 NeoForge，按 ARCHITECTURE.md §3.1 补模块即可。
-include('common', 'forge')
