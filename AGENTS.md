@@ -62,9 +62,12 @@
 
 ## Git 提交纪律
 
-**每次版本推进（新 `mod_version` / 可发布 jar）后必须 `git add` + `git commit`。**  
-建议提交信息：`release: AppliedPowah <mod_version> — <一句话变更>`。  
-`refs/`、`logs/`、`.workbuddy/` 不入库（见 `.gitignore`）。
+- **远程**：`origin = https://github.com/Coala2147/Applied-Powah.git`（仅此仓库）。  
+- **标题要短**：`feat: …`、`fix: …`、`docs: …`、`chore: …`（中文或极短英文均可）；禁止长段英文标题。  
+- **功能改动先拉分支**（如 `feat/ex-orb`、`fix/tooltip-style`），测试通过后再 **merge 回 master**。  
+- **版本推进**（新 `mod_version` / release jar）后：合并 + 短标题 commit；`refs/`、`logs/`、`libs/`、`.workbuddy/` 不入库。  
+
+**下一轮功能计划见：`docs/PLAN_高级充能台与指导体系.md`。**
 
 ## VoxelShape 注意
 
