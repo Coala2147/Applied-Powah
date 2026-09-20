@@ -1,0 +1,42 @@
+# ============ DRAFT (Forge 1.20.1, ATM9) ============
+modLoader="javafml"
+loaderVersion="[47,)"
+license="TODO: 选定许可证（建议与 AE2 兼容，见设计文档）"
+showAsResourcePack=false
+
+[[mods]]
+modId="appliedpowah"
+version="${file.jarVersion}"
+displayName="Applied Powah"
+description="AE2 × Powah 缝合：高密度能源元件 + AE/ME 充能棒（AE2 网络部件）"
+authors="LuFH"
+logoFile=""
+useFrontendTranslation=true
+
+[[dependencies.appliedpowah]]
+modId="forge"
+type="required"
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.appliedpowah]]
+modId="ae2"
+type="optional"
+versionRange="*"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.appliedpowah]]
+modId="powah"
+type="optional"
+versionRange="*"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.appliedpowah]]
+modId="appflux"
+type="optional"
+versionRange="*"
+ordering="NONE"
+side="BOTH"

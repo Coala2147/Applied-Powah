@@ -1,0 +1,40 @@
+// ============ DRAFT (root) ============
+// Architectury 多 loader 根构建。不单独运行，由各子项目继承。
+// 版本占位见 gradle.properties，联网后核验。
+plugins {
+    id 'java'
+    // Architectury Loom 版本由 settings.gradle pluginManagement 提供；此处 apply false 以便子项目按需启用
+    id 'dev.architectury.loom' version "${architectury_version}" apply false
+}
+
+allprojects {
+    group = project.mod_group
+    version = project.mod_version
+    archivesBaseName = rootProject.name
+
+    repositories {
+        mavenCentral()
+        maven { url = "https://maven.architectury.dev/" }
+        maven { url = "https://maven.minecraftforge.net/" }
+        maven { url = "https://maven.neoforged.net/releases/" }
+        maven { url = "https://maven.parchmentmc.org/" }
+        maven { url = "https://cursemaven.com/maven/" }
+        maven { url = "https://api.modrinth.com/maven" }
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'dev.architectury.loom'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(project.java_version.toInteger())
+        }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+}
