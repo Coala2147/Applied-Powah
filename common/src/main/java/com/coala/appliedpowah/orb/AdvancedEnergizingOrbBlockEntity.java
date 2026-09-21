@@ -1,5 +1,6 @@
 package com.coala.appliedpowah.orb;
 
+import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGridNode;
@@ -17,9 +18,13 @@ import net.minecraftforge.items.ItemStackHandler;
 
 /**
  * Advanced Energizing Orb.
- * 4 rod slots × ≤16 AP rods; same energy family (AE or ME), mixed tiers OK.
- * Cache = Σ n×C(t). Network pull fills that cache (energy-cell style).
- * Recipes consume recipeEnergy only; leftover cache stays.
+ * <ul>
+ *   <li>4 rod slots × ≤16 AP rods; same AE/ME family; mixed tiers OK.</li>
+ *   <li>Internal energy cache = Σ n×C(t) — like AE2 energy cells / portable terminals:
+ *       network pull fills the cache; Jade reads {@link #getAECurrentPower()}.</li>
+ *   <li>Rod items never enter craft input slots.</li>
+ *   <li>Grid: BOTTOM only (matches tested ground cable).</li>
+ * </ul>
  */
 public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity {
 
@@ -97,6 +102,7 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         return true;
     }
 
+    /** Σ n_i × C(t_i) in internal FE. */
     public long rodCapacitySum() {
         long sum = 0;
         for (int i = 0; i < ROD_SLOTS; i++) {
@@ -116,23 +122,38 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
 
     @Override
     public long getDisplayEnergy() {
+        // Cache is the real stored energy (AE family displays FE/2).
         return isAeDisplay() ? bufferFe / 2 : bufferFe;
     }
 
     @Override
     public long getDisplayCapacity() {
         long rodCap = rodCapacitySum();
-        long show = isAeDisplay() ? rodCap / 2 : rodCap;
-        if (show > 0) {
-            return show;
+        if (rodCap > 0) {
+            return isAeDisplay() ? rodCap / 2 : rodCap;
         }
-        long recipeCap = isAeDisplay() && recipeEnergy > 0 ? recipeEnergy / 2 : recipeEnergy;
-        return Math.max(recipeCap, 0);
+        return recipeEnergy > 0 ? (isAeDisplay() ? recipeEnergy / 2 : recipeEnergy) : 0;
+    }
+
+    /** Jade / AE2: report the rod cache like an energy cell. */
+    @Override
+    public double getAECurrentPower() {
+        return getDisplayEnergy();
+    }
+
+    @Override
+    public double getAEMaxPower() {
+        return getDisplayCapacity();
+    }
+
+    @Override
+    public AccessRestriction getPowerFlow() {
+        return AccessRestriction.NO_ACCESS;
     }
 
     @Override
     public long fillEnergy(long amount) {
-        if (level == null || amount <= 0 || !rodsPresent()) {
+        if (level == null || amount <= 0 || !rodsPresent() || completing) {
             return 0;
         }
         long cacheMax = rodCapacitySum();
@@ -147,12 +168,16 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
             completeIfPossible();
         }
+        updateWarning();
         setChanged();
         markForUpdate();
         return filled;
     }
 
-    /** Network fills rod cache like AE2 energy cells — even without a loaded recipe. */
+    /**
+     * Network pull fills the rod cache (energy-cell / portable-terminal style).
+     * Ground cable on DOWN is enough — node must be active.
+     */
     @Override
     protected void pullFromNetwork(IGridNode node) {
         if (!APConfig.COMMON.orbPullFromNetwork.get() || !rodsPresent() || node == null || !node.isActive()) {
@@ -201,12 +226,13 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
                 bufferFe += got;
             }
         }
-        if (recipe == null) {
+        if (recipe == null && !completing) {
             checkRecipe();
         }
         if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
             completeIfPossible();
         }
+        updateWarning();
         setChanged();
         markForUpdate();
     }

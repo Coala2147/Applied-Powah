@@ -26,22 +26,22 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         this.orb = orb;
         this.access = ContainerLevelAccess.create(orb.getLevel(), orb.getBlockPos());
         ItemStackHandler inv = orb.getInv();
-        this.addSlot(new SlotItemHandler(inv, 0, 116, 35) {
+        this.addSlot(new SlotItemHandler(inv, 0, 116, 36) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return false;
             }
         });
-        int[][] in = {{44, 17}, {62, 17}, {80, 17}, {44, 35}, {62, 35}, {80, 35}};
+        int[][] in = {{44, 24}, {62, 24}, {80, 24}, {44, 42}, {62, 42}, {80, 42}};
         for (int i = 0; i < 6; i++) {
             this.addSlot(new SlotItemHandler(inv, 1 + i, in[i][0], in[i][1]));
         }
         int count = 7;
         if (orb instanceof AdvancedEnergizingOrbBlockEntity adv) {
             ItemStackHandler rods = adv.getRodInv();
-            // Right-hand vertical rod column (matches with-4-block GUI mock)
+            // Rod column inside panel, aligned to with-4-block mock (x≈148–166)
             for (int i = 0; i < AdvancedEnergizingOrbBlockEntity.ROD_SLOTS; i++) {
-                this.addSlot(new SlotItemHandler(rods, i, 180, 14 + i * 18) {
+                this.addSlot(new SlotItemHandler(rods, i, 148, 24 + i * 18) {
                     @Override
                     public boolean mayPlace(ItemStack stack) {
                         return stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem

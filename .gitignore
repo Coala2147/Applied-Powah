@@ -37,19 +37,14 @@ Desktop.ini
 # ===== Local dependency jars =====
 libs/
 
-<<<<<<< HEAD
 # ===== Local art WIP (not shipped) =====
 # 仅忽略仓库根目录的 asset(s)，不要误伤 common/src/main/resources/assets
 /asset/
 /assets/
 
+# ===== Local docs / investigation — keep on disk, do NOT upload =====
+/docs/
+
 # ===== Local build products (fixed output path; do not upload) =====
-releases/
-=======
-# ===== Local scratch / release jars — NEVER upload to GitHub, NEVER delete =====
-# Root-only patterns so mod resource packs under common/src/.../assets/ stay tracked.
-/asset/
-/assets/
-/TODO.md
 /releases/
->>>>>>> fb31d16 (fix: JEI 空电/创造满电、GuideME 导航与中文页、工程约定)
+/releases/**

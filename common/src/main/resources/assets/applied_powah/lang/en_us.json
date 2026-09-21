@@ -44,5 +44,7 @@
   "applied_powah.gui.guide": "Open energizing orb guide",
   "applied_powah.gui.guide_missing": "Could not open GuideME (AE2/GuideME required)",
   "applied_powah.gui.auto_export.on": "Auto-export: ON (ME network / adjacent)",
-  "applied_powah.gui.auto_export.off": "Auto-export: OFF"
+  "applied_powah.gui.auto_export.off": "Auto-export: OFF",
+  "applied_powah.gui.power_warning": "Insufficient power",
+  "applied_powah.gui.power_warning_details": "Recipe ready but energy cache empty — check rods or ME network pull"
 }

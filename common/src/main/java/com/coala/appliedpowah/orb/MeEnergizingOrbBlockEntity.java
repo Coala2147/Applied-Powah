@@ -41,14 +41,12 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * ME Energizing Orb.
- * <ul>
- *   <li>No energy cache. Never pulls AE/FE from the ME network.</li>
- *   <li>Rod-fed only for the current recipe (Powah + AP rods via PowahBridge).</li>
- *   <li>Output craft follows AE2 Inscriber: recipe result count only, extract 1 per input.</li>
- *   <li>Auto-export follows AE2 ME Interface: {@link StorageHelper#poweredInsert}.</li>
- *   <li>Grid: all faces connect (COVERED) so cables on any side see the device.</li>
- * </ul>
+ * ME Energizing Orb — rod-fed recipe machine + GUI + ME auto-export.
+ * No independent energy cache. Grid connects on BOTTOM only.
+ *
+ * Craft completion uses a re-entrancy guard: writing the output must not
+ * re-enter completeIfPossible via onContentsChanged → checkRecipe
+ * (that path produced 1→64 stacks).
  */
 public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         implements IGridTickable, EnergyAcceptingOrb, IAEPowerStorage {
@@ -59,7 +57,9 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
-            checkRecipe();
+            if (!completing) {
+                checkRecipe();
+            }
             getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
         }
 
@@ -112,10 +112,14 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         }
     };
 
+    /** Blocks re-entrant completeIfPossible while writing output / extracting inputs. */
+    protected boolean completing;
     protected long bufferFe;
     protected long recipeEnergy;
     protected boolean containRecipe;
     protected boolean autoExport;
+    /** True when a loaded recipe has no incoming energy (power alert). */
+    protected boolean showWarning;
     @Nullable
     protected EnergizingRecipe recipe;
     private LazyOptional<IItemHandler> itemCap = LazyOptional.empty();
@@ -125,7 +129,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         super(type, pos, state);
         getMainNode()
                 .setIdlePowerUsage(0)
-                .setExposedOnSides(EnumSet.allOf(Direction.class))
+                .setExposedOnSides(EnumSet.of(Direction.DOWN))
                 .setVisualRepresentation(getItemFromBlockEntity())
                 .addService(IGridTickable.class, this);
         try {
@@ -135,7 +139,6 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         }
     }
 
-    /** Network tool / ME controller name — shared BE types must not show Air. */
     @Override
     protected Item getItemFromBlockEntity() {
         try {
@@ -176,6 +179,10 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         return bufferFe;
     }
 
+    public boolean isShowWarning() {
+        return showWarning;
+    }
+
     @Override
     public boolean containRecipe() {
         return containRecipe;
@@ -183,7 +190,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     @Override
     public long fillEnergy(long amount) {
-        if (level == null || recipe == null || recipeEnergy <= 0 || amount <= 0) {
+        if (level == null || recipe == null || recipeEnergy <= 0 || amount <= 0 || completing) {
             return 0;
         }
         long empty = Math.max(0, recipeEnergy - bufferFe);
@@ -200,17 +207,15 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
     }
 
     /**
-     * Inscriber pattern (InscriberBlockEntity.tickingRequest):
-     * <ol>
-     *   <li>{@code result = recipe.getResultItem().copy()} — count comes from the recipe JSON only.</li>
-     *   <li>Insert into output; abort if it does not fit (do not eat inputs).</li>
-     *   <li>Extract <b>exactly 1</b> from each occupied input slot.</li>
-     *   <li>Consume {@code recipeEnergy} from the buffer (Advanced keeps leftover cache).</li>
-     * </ol>
-     * Never multiplies the result. Output may stack the same item up to 64.
+     * Inscriber-style finish:
+     * 1) re-entrancy guard
+     * 2) result = recipe.getResultItem().copy() only
+     * 3) extract 1 per input FIRST (so callbacks cannot re-match)
+     * 4) write output
+     * 5) consume recipeEnergy
      */
     protected void completeIfPossible() {
-        if (level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
+        if (completing || level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
             return;
         }
         ItemStack result;
@@ -226,13 +231,8 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         if (result.isEmpty()) {
             return;
         }
-        // Recipe JSON count only (1, 16, …). Reject absurd values instead of inventing stacks.
         int resultCount = result.getCount();
-        if (resultCount <= 0) {
-            return;
-        }
-        if (resultCount > 64) {
-            AppliedPowahLog(resultCount);
+        if (resultCount <= 0 || resultCount > 64) {
             return;
         }
 
@@ -245,34 +245,34 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
                 return;
             }
             if (slot.getCount() + resultCount > 64) {
-                return; // full — wait, do not craft
+                return;
             }
             after = slot.copy();
             after.grow(resultCount);
         }
 
-        // Commit output, then extract 1 per input (Inscriber).
-        inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, after);
-        for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
-            if (!inv.getStackInSlot(i).isEmpty()) {
-                inv.extractItem(i, 1, false);
+        completing = true;
+        try {
+            // Consume inputs first — onContentsChanged will see no recipe.
+            for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
+                if (!inv.getStackInSlot(i).isEmpty()) {
+                    inv.extractItem(i, 1, false);
+                }
             }
+            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, after);
+            bufferFe = Math.max(0, bufferFe - recipeEnergy);
+            recipeEnergy = 0;
+            recipe = null;
+            containRecipe = false;
+        } finally {
+            completing = false;
         }
-        bufferFe = Math.max(0, bufferFe - recipeEnergy);
-        recipeEnergy = 0;
-        recipe = null;
-        containRecipe = false;
         setChanged();
         markForUpdate();
     }
 
-    private static void AppliedPowahLog(int resultCount) {
-        com.coala.appliedpowah.AppliedPowah.LOG.warn(
-                "Energizing orb refused craft: recipe result count {} > 64", resultCount);
-    }
-
     protected void checkRecipe() {
-        if (level == null || level.isClientSide) {
+        if (level == null || level.isClientSide || completing) {
             return;
         }
         EnergizingRecipe found = EnergizingOrbLogic.findRecipe(level, inv);
@@ -294,8 +294,28 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
             }
             containRecipe = false;
         }
+        updateWarning();
         setChanged();
         markForUpdate();
+    }
+
+    /**
+     * reaction_chamber-style power alert.
+     * ME: recipe loaded but no rod energy.
+     * Advanced: rods present + recipe, cache empty (network/rods not feeding).
+     */
+    protected void updateWarning() {
+        boolean warn = false;
+        if (recipe != null && recipeEnergy > 0 && bufferFe <= 0) {
+            if (this instanceof AdvancedEnergizingOrbBlockEntity adv) {
+                warn = adv.rodsPresent();
+            } else {
+                warn = true;
+            }
+        }
+        if (warn != showWarning) {
+            showWarning = warn;
+        }
     }
 
     public boolean isAeDisplay() {
@@ -313,6 +333,9 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
     public String getEnergyUnit() {
         return isAeDisplay() ? "AE" : "FE";
     }
+
+    // ---- Jade / AE2 IAEPowerStorage — ME orb has no cache (0/0). ----
+    // Advanced overrides to report the rod cache (energy-cell style).
 
     @Override
     public double getAECurrentPower() {
@@ -344,6 +367,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         return AccessRestriction.NO_ACCESS;
     }
 
+    /** ME orb: never extract AE/FE from the network. */
     protected void pullFromNetwork(IGridNode node) {
     }
 
@@ -359,13 +383,6 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         return autoExport;
     }
 
-    /**
-     * Auto-export products.
-     * <ol>
-     *   <li>Inscriber-style push to adjacent inventories.</li>
-     *   <li>ME Interface-style {@code StorageHelper.poweredInsert} into network storage.</li>
-     * </ol>
-     */
     protected void autoExportTick(IGridNode node) {
         if (!autoExportEnabled() || level == null || level.isClientSide) {
             return;
@@ -375,8 +392,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         if (out.isEmpty()) {
             return;
         }
-
-        // 1) Adjacent inventories — Inscriber.pushOutResult
+        // Adjacent inventories — Inscriber.pushOutResult
         for (Direction dir : Direction.values()) {
             if (budget <= 0) {
                 return;
@@ -410,34 +426,6 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
             budget -= can;
             out = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
         }
-
-        // 2) ME network — InterfaceLogic.tryUsePlan: StorageHelper.poweredInsert
-        if (budget > 0 && ModList.get().isLoaded("ae2") && node != null && node.isActive()) {
-            ItemStack still = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
-            if (still.isEmpty()) {
-                return;
-            }
-            try {
-                IStorageService storageService = node.getGrid().getService(IStorageService.class);
-                IEnergyService energyService = node.getGrid().getEnergyService();
-                if (storageService == null || energyService == null) {
-                    return;
-                }
-                MEStorage networkInv = storageService.getInventory();
-                AEItemKey key = AEItemKey.of(still);
-                if (key == null) {
-                    return;
-                }
-                int move = Math.min(budget, still.getCount());
-                long inserted = StorageHelper.poweredInsert(
-                        energyService, networkInv, key, move, machineSource);
-                if (inserted > 0) {
-                    inv.extractItem(EnergizingOrbLogic.OUTPUT, (int) inserted, false);
-                }
-            } catch (Throwable t) {
-                com.coala.appliedpowah.AppliedPowah.LOG.debug("Orb ME export failed: {}", t.toString());
-            }
-        }
     }
 
     @Override
@@ -450,12 +438,13 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         if (level == null || level.isClientSide) {
             return TickRateModulation.SLEEP;
         }
-        if (recipe == null) {
+        if (recipe == null && !completing) {
             checkRecipe();
         }
         pullFromNetwork(node);
-        boolean exported = pushOutToMe(node);
         autoExportTick(node);
+        boolean exported = pushOutToMe(node);
+        updateWarning();
         boolean work = containRecipe
                 || !inv.getStackInSlot(EnergizingOrbLogic.OUTPUT).isEmpty()
                 || autoExportEnabled()
@@ -463,7 +452,6 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         return work || exported ? TickRateModulation.URGENT : TickRateModulation.SLEEP;
     }
 
-    /** @return true if anything was pushed into ME this tick. */
     private boolean pushOutToMe(IGridNode node) {
         if (!autoExportEnabled() || node == null || !node.isActive()) {
             return false;
@@ -501,21 +489,21 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         return false;
     }
 
-    /** All faces connect — cables on any side see this machine in the network. */
+    /** BOTTOM only — user-tested ground cable connects; do not open other faces. */
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
-        return EnumSet.allOf(Direction.class);
+        return EnumSet.of(Direction.DOWN);
     }
 
     @Override
     public AECableType getCableConnectionType(Direction dir) {
-        return AECableType.COVERED;
+        return dir == Direction.DOWN ? AECableType.COVERED : AECableType.NONE;
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setExposedOnSides(EnumSet.allOf(Direction.class));
+        getMainNode().setExposedOnSides(EnumSet.of(Direction.DOWN));
     }
 
     @Override
@@ -525,6 +513,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         tag.putLong("recipeEnergy", recipeEnergy);
         tag.putBoolean("containRecipe", containRecipe);
         tag.putBoolean(NBT_EXPORT, autoExport);
+        tag.putBoolean("showWarning", showWarning);
         tag.put("orbInv", inv.serializeNBT());
     }
 
@@ -535,6 +524,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         recipeEnergy = tag.getLong("recipeEnergy");
         containRecipe = tag.getBoolean("containRecipe");
         autoExport = tag.getBoolean(NBT_EXPORT);
+        showWarning = tag.getBoolean("showWarning");
         if (tag.contains("orbInv")) {
             inv.deserializeNBT(tag.getCompound("orbInv"));
         }

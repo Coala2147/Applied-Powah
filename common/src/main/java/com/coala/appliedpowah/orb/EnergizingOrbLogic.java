@@ -28,10 +28,14 @@ public final class EnergizingOrbLogic {
      * 配方匹配忽略 slot0；一次完成只按配方 result 入槽，输出槽可多次叠堆至上限。
      */
     public static boolean canInsertInput(ItemStackHandler inv, int index, ItemStack stack) {
-        return index != OUTPUT
-                && index < inv.getSlots()
-                && inv.getStackInSlot(index).isEmpty()
-                && !stack.isEmpty();
+        if (index == OUTPUT || index >= inv.getSlots() || stack.isEmpty()) {
+            return false;
+        }
+        // Rods go only in Advanced orb rod slots — never craft inputs.
+        if (stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem) {
+            return false;
+        }
+        return inv.getStackInSlot(index).isEmpty();
     }
 
     @Nullable
