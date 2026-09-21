@@ -35,6 +35,14 @@ public final class APCells {
     private static final AtomicReference<BlockEntityType<EnergyCellBlockEntity>> TYPE_REF = new AtomicReference<>();
     public static final AtomicReference<BlockEntityType<EnergizingRodBlockEntity>> ROD_TYPE_REF = new AtomicReference<>();
 
+    /** Concrete BE type for cells; APDenseEnergyCellBlockEntity subclasses AE2's cell BE. */
+    @SuppressWarnings("unchecked")
+    private static BlockEntityType<EnergyCellBlockEntity> cellType() {
+        return (BlockEntityType<EnergyCellBlockEntity>) (BlockEntityType<?>) CELL_TYPE_REF.get();
+    }
+
+    private static final AtomicReference<BlockEntityType<?>> CELL_TYPE_REF = new AtomicReference<>();
+
     public static final Map<RodTier, RegistryObject<Block>> AE_RODS = new EnumMap<>(RodTier.class);
     public static final Map<RodTier, RegistryObject<Block>> ME_RODS = new EnumMap<>(RodTier.class);
 
@@ -61,15 +69,21 @@ public final class APCells {
     public static final RegistryObject<Item> EXTREME_DENSE_ITEM = ITEMS.register(
             "extreme_dense_energy_cell", () -> new APEnergyCellBlockItem(EXTREME_DENSE.get(), new Item.Properties()));
 
-    public static final RegistryObject<BlockEntityType<EnergyCellBlockEntity>> ENERGY_CELLS =
+    public static final RegistryObject<BlockEntityType<?>> ENERGY_CELLS =
             BLOCK_ENTITIES.register("energy_cells", () -> {
-                BlockEntityType<EnergyCellBlockEntity> type = BlockEntityType.Builder
-                        .of((pos, state) -> new EnergyCellBlockEntity(TYPE_REF.get(), pos, state),
+                BlockEntityType<APDenseEnergyCellBlockEntity> type = BlockEntityType.Builder
+                        .of((pos, state) -> new APDenseEnergyCellBlockEntity(CELL_TYPE_REF.get(), pos, state),
                                 SUPER_DENSE.get(), EXTREME_DENSE.get())
                         .build(null);
-                TYPE_REF.set(type);
+                CELL_TYPE_REF.set(type);
+                TYPE_REF.set(castCellType(type));
                 return type;
             });
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static BlockEntityType<EnergyCellBlockEntity> castCellType(BlockEntityType<?> type) {
+        return (BlockEntityType) type;
+    }
 
     public static final RegistryObject<BlockEntityType<EnergizingRodBlockEntity>> ROD_TYPE =
             BLOCK_ENTITIES.register("energizing_rods", () -> {
@@ -117,8 +131,8 @@ public final class APCells {
     private static void onCommonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             var cellType = ENERGY_CELLS.get();
-            bindCell((appeng.block.AEBaseEntityBlock<?>) SUPER_DENSE.get(), cellType);
-            bindCell((appeng.block.AEBaseEntityBlock<?>) EXTREME_DENSE.get(), cellType);
+            bindCell((appeng.block.AEBaseEntityBlock<?>) SUPER_DENSE.get(), castCellType(cellType));
+            bindCell((appeng.block.AEBaseEntityBlock<?>) EXTREME_DENSE.get(), castCellType(cellType));
 
             var rodType = ROD_TYPE.get();
             for (var e : AE_RODS.values()) {

@@ -4,7 +4,7 @@ Integration addon for **Applied Energistics 2** and **Powah** on Minecraft **1.2
 
 Provides high-density AE energy cells and AE/ME Energizing Rods that draw energy from an ME network and supply nearby Powah Energizing Orbs.
 
-In-game documentation uses **GuideME** (same system as AE2), not a custom GUI book. Hold **G** on Applied Powah items after the guide pages declare `item_ids`.
+In-game documentation is merged into the **AE2 GuideME** book (`assets/applied_powah/ae2guide/`), same pattern as ExtendedAE / Advanced AE — not a separate GUI book. Hold **G** on Applied Powah items to open the matching page.
 
 - **License**: LGPL-3.0-only
 - **Mod ID**: `applied_powah`
