@@ -1,10 +1,12 @@
 package com.coala.appliedpowah.chargingrod;
 
+import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.IGridTickable;
@@ -27,8 +29,9 @@ import net.minecraftforge.fml.ModList;
 import java.util.EnumSet;
 import java.util.Set;
 
-/** Full-block rod BE. Connects to AE2 on FACING side only. Beam renders toward orbPos. */
-public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IGridTickable, IEnergyStorage {
+/** Full-block rod BE. Connects to AE2 on FACING side only. Beam renders toward orbPos.
+ * {@link IAEPowerStorage} = AE2 Jade display only (no custom Jade plugin). */
+public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IGridTickable, IEnergyStorage, IAEPowerStorage {
 
     private long bufferFe;
     private int pullAccum;
@@ -258,5 +261,37 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
     @Override
     public boolean canReceive() {
         return false;
+    }
+
+    // ---- AE2 IAEPowerStorage（Jade 复用 AE2 Provider，不自建插件）----
+
+    @Override
+    public double getAECurrentPower() {
+        return getDisplayEnergy();
+    }
+
+    @Override
+    public double getAEMaxPower() {
+        return getDisplayCapacity();
+    }
+
+    @Override
+    public double injectAEPower(double amt, Actionable mode) {
+        return amt;
+    }
+
+    @Override
+    public double extractAEPower(double amt, Actionable mode, PowerMultiplier usePowerMultiplier) {
+        return 0;
+    }
+
+    @Override
+    public boolean isAEPublicPowerStorage() {
+        return false;
+    }
+
+    @Override
+    public AccessRestriction getPowerFlow() {
+        return AccessRestriction.NO_ACCESS;
     }
 }

@@ -23,10 +23,9 @@ public final class EnergizingOrbLogic {
     }
 
     /**
-     * Input slots accept items when the slot itself is empty.
-     * Pending product in output must NOT block refill (unlike raw Powah).
-     * Recipe matching ignores slot 0.
-     * Do NOT change product stack size / multi-complete semantics here.
+     * 输入槽：自身为空即可放入。
+     * 输出槽有产物时**不**挡投料（与错误的 Powah 抄法不同）。
+     * 配方匹配忽略 slot0；一次完成只按配方 result 入槽，输出槽可多次叠堆至上限。
      */
     public static boolean canInsertInput(ItemStackHandler inv, int index, ItemStack stack) {
         return index != OUTPUT

@@ -136,22 +136,45 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         return filled;
     }
 
+    /**
+     * 完成一次 Powah 配方：
+     * - 产物数量 = 配方 result（禁止 1 输入刷 64）
+     * - 输出槽可多次承载同类产物（堆叠到上限 64 为止）
+     * - 输出槽仍有空间且是同类 → 完成并叠上去
+     * - 输出槽满 / 不同类 → 等待取出，不完成、不吞原料
+     * - 原料投递不受输出槽是否有货影响（见 canInsertInput）
+     */
     protected void completeIfPossible() {
         if (level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
             return;
         }
-        // 产物槽必须为空才完成一次配方；禁止堆叠/一次输入多份输出。
         ItemStack out = EnergizingOrbLogic.resultOf(level, recipe);
-        if (!out.isEmpty() && inv.getStackInSlot(EnergizingOrbLogic.OUTPUT).isEmpty()) {
-            EnergizingOrbLogic.clearInputs(inv);
-            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, out);
-            bufferFe = 0;
-            recipeEnergy = 0;
-            recipe = null;
-            containRecipe = false;
-            setChanged();
-            markForUpdate();
+        if (out.isEmpty()) {
+            return;
         }
+        int limit = Math.min(64, inv.getSlotLimit(EnergizingOrbLogic.OUTPUT));
+        if (out.getCount() > limit) {
+            return;
+        }
+        ItemStack slot = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
+        if (slot.isEmpty()) {
+            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, out);
+        } else if (ItemStack.isSameItemSameTags(slot, out)
+                && slot.getCount() + out.getCount() <= limit) {
+            ItemStack merged = slot.copy();
+            merged.grow(out.getCount());
+            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, merged);
+        } else {
+            // 产物槽满或不是同一物品 — 等待玩家/自动化取出，本次不完成
+            return;
+        }
+        EnergizingOrbLogic.clearInputs(inv);
+        bufferFe = 0;
+        recipeEnergy = 0;
+        recipe = null;
+        containRecipe = false;
+        setChanged();
+        markForUpdate();
     }
 
     protected void checkRecipe() {
@@ -166,7 +189,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
             recipe = found;
             recipeEnergy = found.getEnergy();
             containRecipe = true;
-            // 产物被取走后，若缓存已足够则立刻完成一次（仍要求输出槽为空）
+            // 输出槽有空间时（空或可叠堆），能量够就立刻完成一次
             if (bufferFe >= recipeEnergy) {
                 completeIfPossible();
             }
