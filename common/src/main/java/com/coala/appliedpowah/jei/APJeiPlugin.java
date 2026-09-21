@@ -4,28 +4,53 @@ import com.coala.appliedpowah.AppliedPowah;
 import com.coala.appliedpowah.energycell.APCells;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
-import mezz.jei.api.recipe.RecipeType;
-import mezz.jei.api.registration.IRecipeRegistration;
 import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.recipe.RecipeType;
+import mezz.jei.api.registration.IRecipeCatalystRegistration;
+import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import owmii.powah.block.energizing.EnergizingRecipe;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * JEI plugin: info pages for AP items.
- * Crafting recipes are vanilla data — JEI loads them automatically.
- * AP rods are NOT Powah orb (充能) recipes; they are workbench crafts.
+ * JEI plugin.
+ * <ul>
+ *   <li>Registers Applied Powah rods as catalysts on Powah's Energizing category
+ *       (same uid {@code powah:energizing}) — rods supply the orb, they are not
+ *       crafting ingredients of energizing recipes.</li>
+ *   <li>Ingredient info pages for cells and rods.</li>
+ * </ul>
+ * Crafting recipes remain vanilla data and are listed automatically.
+ * Class is only loaded when JEI is present ({@code @JeiPlugin}).
  */
 @JeiPlugin
 public class APJeiPlugin implements IModPlugin {
     private static final ResourceLocation UID = new ResourceLocation(AppliedPowah.MOD_ID, "jei_plugin");
 
+    /** Identity must match Powah EnergizingCategory.TYPE (powah:energizing). */
+    private static final RecipeType<EnergizingRecipe> POWAH_ENERGIZING =
+            RecipeType.create("powah", "energizing", EnergizingRecipe.class);
+
     @Override
     public ResourceLocation getPluginUid() {
         return UID;
+    }
+
+    @Override
+    public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
+        try {
+            APCells.AE_RODS.forEach((tier, block) ->
+                    registration.addRecipeCatalyst(new ItemStack(block.get()), POWAH_ENERGIZING));
+            APCells.ME_RODS.forEach((tier, block) ->
+                    registration.addRecipeCatalyst(new ItemStack(block.get()), POWAH_ENERGIZING));
+            AppliedPowah.LOG.info("JEI: registered AP rods as powah:energizing catalysts");
+        } catch (Throwable t) {
+            AppliedPowah.LOG.warn("JEI catalyst registration skipped: {}", t.toString());
+        }
     }
 
     @Override
@@ -43,9 +68,10 @@ public class APJeiPlugin implements IModPlugin {
             for (ItemStack stack : stacks) {
                 List<Component> info = new ArrayList<>();
                 info.add(Component.translatable("jei.applied_powah.info_header"));
-                if (stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem rod) {
+                if (stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem) {
                     info.add(Component.translatable("jei.applied_powah.rod_craft_note"));
                     info.add(Component.translatable("jei.applied_powah.rod_place_note"));
+                    info.add(Component.translatable("jei.applied_powah.rod_feed_note"));
                 } else {
                     info.add(Component.translatable("jei.applied_powah.cell_note"));
                 }
@@ -53,7 +79,7 @@ public class APJeiPlugin implements IModPlugin {
             }
             AppliedPowah.LOG.info("JEI: registered {} Applied Powah info entries", stacks.size());
         } catch (Throwable t) {
-            AppliedPowah.LOG.warn("JEI plugin skipped: {}", t.toString());
+            AppliedPowah.LOG.warn("JEI info registration skipped: {}", t.toString());
         }
     }
 }

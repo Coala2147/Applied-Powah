@@ -7,7 +7,7 @@ showAsResourcePack=false
 modId="applied_powah"
 version="${mod_version}"
 displayName="Applied Powah"
-description="AE2 x Powah: high-density energy cells and AE/ME Energizing Rods (AE2 parts) that feed Powah Energizing Orbs. Requires Minecraft 1.20.1 Forge 47+ and Applied Energistics 2."
+description="Applied Energistics 2 addon: high-density energy cells and full-block AE/ME Energizing Rods that extract energy from an ME network and supply Powah Energizing Orbs. Requires Minecraft 1.20.1 Forge 47+ and AE2."
 authors="Coala"
 displayTest="MATCH_VERSION"
 

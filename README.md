@@ -1,60 +1,67 @@
 # Applied Powah
 
-AE2 × Powah 缝合 mod（Minecraft **1.20.1 Forge**）。
+Integration addon for **Applied Energistics 2** and **Powah** on Minecraft **1.20.1 Forge**.
 
-- **许可证**：LGPL-3.0-only（与 AE2 同级）
-- **Mod ID**：`applied_powah`
-- **Java 包**：`com.coala.appliedpowah`
-- **GitHub**：`https://github.com/Coala2147/Applied-Powah.git`
-- **文档**：本 README、`docs/工程指导.md`、`AGENTS.md`、`docs/guidebook/`
-- **发行 jar**：`releases/AppliedPowah-<mod_version>.jar`（旧版本保留不删）
+Provides high-density AE energy cells and AE/ME Energizing Rods that draw energy from an ME network and supply nearby Powah Energizing Orbs.
 
-## 功能（当前 alpha）
+- **License**: LGPL-3.0-only
+- **Mod ID**: `applied_powah`
+- **Java package**: `com.coala.appliedpowah`
+- **Repository**: `https://github.com/Coala2147/Applied-Powah.git`
+- **Docs**: this README, `docs/工程指导.md`, `AGENTS.md`, `docs/guidebook/`
+- **Release jars**: `releases/AppliedPowah-<mod_version>.jar` (older builds retained)
 
-| 内容 | 说明 |
-|------|------|
-| 超密 / 极密能源元件 | 12.8M / 102.4M AE；合成 8×上一级 + 运算处理器 |
-| AE Energizing Rod ×7 档 | **完整方块**，从 ME 网络抽 **AE**，喂附近 Powah 充能台 |
-| ME Energizing Rod ×7 档 | **完整方块**，从 ME 网络抽 **Applied Flux FE**，喂充能台 |
-| 配方 | AE 十字 / ME 四角 + 中心同档 Powah 棒；升级仿 Powah；AE↔ME 无序；缺前置自动关配方 |
-| 放置 | **邻接 AE2 线缆才能放**；facing 朝向线缆（对准优先 → 单缆 → 南/东） |
-| 碰撞 | 细杆状（同 Powah），**不是**完整立方体 |
-| 光柱 | 有能量/正在推能时，棒与充能台之间显示光柱（贴图借自 Powah，1.0 前可换） |
+## Content (current alpha)
 
-## 前置
+| Component | Description |
+|-----------|-------------|
+| Super / Extreme Dense Energy Cell | 12.8M / 102.4M AE; crafted from 8× previous cell + calculation processor |
+| AE Energizing Rod ×7 tiers | Full block; extracts **AE** from the ME network; feeds a nearby Powah Energizing Orb |
+| ME Energizing Rod ×7 tiers | Full block; extracts **FE** (Applied Flux) from the ME network; feeds an Energizing Orb |
+| Recipes | AE cross / ME corners + same-tier Powah rod; tier upgrades follow Powah patterns; AE↔ME shapeless; gated by mod presence |
+| Placement | Requires an adjacent AE2 cable; `facing` targets the cable (aimed cable → single cable → south/east) |
+| Collision | Thin rod shape (Powah-like), not a full cube |
+| Beam | Visual beam while transferring energy to an orb (borrowed textures until 1.0) |
 
-| 模组 | 必须？ |
-|------|--------|
-| Minecraft 1.20.1 + Forge 47+ | 是 |
-| **Applied Energistics 2 15+** | **是** |
-| Powah 5+ | 强烈建议（充能台与配方中心） |
-| Applied Flux 1+ | ME 棒抽 FE 需要 |
+Item tooltips follow AE2 wording and light-gray styling (`Stored Energy: … AE (…%)`). Rod items show buffer/output/source specs only; they do not fabricate live stored energy.
 
-## 构建
+## Dependencies
+
+| Mod | Required |
+|-----|----------|
+| Minecraft 1.20.1 + Forge 47+ | Yes |
+| **Applied Energistics 2 15+** | **Yes** |
+| Powah 5+ | Strongly recommended (Energizing Orb and recipe source) |
+| Applied Flux 1+ | Required for ME rod FE extraction |
+| JEI 15+ (optional) | Rod catalysts on the Powah Energizing category |
+
+## Building
 
 ```
 JAVA_HOME=D:\Program Files\Java\jdk-17
-HTTP(S)_PROXY=http://127.0.0.1:7890   # gradle.properties 已写 systemProp
+HTTP(S)_PROXY=http://127.0.0.1:7890   # also set in gradle.properties systemProp
 ./gradlew build
 # → releases/AppliedPowah-<mod_version>.jar
 ```
 
-版本号改 `gradle.properties` 的 `mod_version`（须为 Maven 合法版本，如 `0.1.0-alpha.6`）。
+Set `mod_version` in `gradle.properties` (Maven-legal, e.g. `0.1.0-alpha.9`).
 
-## 源码布局
+Local compile jars live in `libs/` (AE2, Powah, Applied Flux, JEI). See `libs/README.md`.
+
+## Source layout
 
 ```
-common/src/main/java/com/coala/appliedpowah/   # 逻辑
-forge/src/main/java/.../AppliedPowah.java      # @Mod 入口
-common/src/main/resources/assets/applied_powah # 模型/贴图/lang
-common/src/main/resources/data/applied_powah   # 配方/战利品
-docs/                                           # 工程指导、核验、指南
-releases/                                       # 发行 jar
-refs/                                           # 只读参考（AE2/Powah/AppFlux），不入仓
+common/src/main/java/com/coala/appliedpowah/   # game logic
+forge/src/main/java/.../AppliedPowah.java      # @Mod entrypoint
+common/src/main/resources/assets/applied_powah # models/textures/lang
+common/src/main/resources/data/applied_powah   # recipes/loot tables
+docs/                                           # engineering docs and guidebook drafts
+releases/                                       # built jars
+refs/                                           # read-only reference sources (not in git)
 ```
 
-## 路线（摘录）
+## Roadmap (excerpt)
 
-- **进行中**：完整方块充能棒、取能、喂充能台、光柱、本地化
-- **后续**：Jade 能量显示、专用贴图（1.0 前）、无线充能棒（展望）、kubejs 路线（展望）
-- 详见 `docs/工程指导.md`
+- **In progress**: full-block energizing rods, network extraction, orb feed, beam, localization, AE2-style tooltips, JEI catalysts
+- **Later**: Jade integration, original textures (before 1.0), additional machines under review
+- Details: `docs/工程指导.md` and `docs/PLAN_高级充能台与指导体系.md`

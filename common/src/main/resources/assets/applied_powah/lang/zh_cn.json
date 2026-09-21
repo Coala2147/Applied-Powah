@@ -3,9 +3,17 @@
   "item.applied_powah.guide_book": "Applied Powah 指南",
   "gui.applied_powah.guide_scroll": "鼠标滚轮翻页",
   "jei.applied_powah.info_header": "Applied Powah",
-  "jei.applied_powah.rod_craft_note": "工作台合成，不在 Powah「充能」台制作。对本物品按 R 查看配方。",
-  "jei.applied_powah.rod_place_note": "需放在 AE2 线缆旁；facing 朝向线缆接入网络。",
+  "jei.applied_powah.rod_craft_note": "在工作台合成，不属于 Powah「充能」配方。按 R 查看工作台配方。",
+  "jei.applied_powah.rod_place_note": "需邻接 AE2 线缆放置；facing 指向线缆并接入网络。",
+  "jei.applied_powah.rod_feed_note": "作为 Energizing 类目 catalyst：棒向附近 Powah Energizing Orb 输出能量。",
   "jei.applied_powah.cell_note": "AE2 风格能源元件；挖掘时保留内部 AE。",
+  "applied_powah.tooltip.stored_energy": "已存储能源: %s/%s AE (%s)",
+  "applied_powah.tooltip.guide_hint": "使用物品「Applied Powah 指南」查看说明",
+  "applied_powah.tooltip.rod.cache": "缓存: %s %s",
+  "applied_powah.tooltip.rod.output": "输出: %s %s/t",
+  "applied_powah.tooltip.rod.source_ae": "取能: ME 网络 AE",
+  "applied_powah.tooltip.rod.source_me": "取能: ME 网络 FE (Applied Flux)",
+  "applied_powah.tooltip.rod.source_me_missing": "取能: ME 网络 FE（未安装 Applied Flux，不可用）",
   "block.applied_powah.super_dense_energy_cell": "超密能源元件",
   "block.applied_powah.extreme_dense_energy_cell": "极密能源元件",
   "block.applied_powah.ae_energizing_rod_starter": "AE 充能棒（初级）",
@@ -39,4 +47,3 @@
   "item.applied_powah.me_energizing_rod_spirited": "ME 充能棒（富生）",
   "item.applied_powah.me_energizing_rod_nitro": "ME 充能棒（下界）"
 }
-
