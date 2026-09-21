@@ -1,8 +1,5 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
-  "applied_powah.tooltip.stored_energy_label": "已存储能源",
-  "applied_powah.tooltip.rod.buffer_label": "缓存",
-  "applied_powah.tooltip.rod.transfer_label": "输出",
   "block.applied_powah.super_dense_energy_cell": "超密能源元件",
   "block.applied_powah.extreme_dense_energy_cell": "极密能源元件",
   "block.applied_powah.ae_energizing_rod_starter": "AE 充能棒（初级）",
@@ -38,5 +35,6 @@
   "item.applied_powah.me_energizing_rod_spirited": "ME 充能棒（富生）",
   "item.applied_powah.me_energizing_rod_nitro": "ME 充能棒（下界）",
   "item.applied_powah.me_energizing_orb": "ME 充能台",
-  "item.applied_powah.advanced_energizing_orb": "高级充能台"
+  "item.applied_powah.advanced_energizing_orb": "高级充能台",
+  "applied_powah.tooltip.progress": "反应进度: %s / %s (%s%%)"
 }

@@ -63,6 +63,16 @@ public final class AppliedPowah {
                         } catch (Throwable t) {
                             LOG.warn("Creative tab ME rods: {}", t.toString());
                         }
+                        try {
+                            if (com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.isPresent()) {
+                                output.accept(com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.get());
+                            }
+                            if (com.coala.appliedpowah.orb.APOrbs.ADV_ORB_ITEM.isPresent()) {
+                                output.accept(com.coala.appliedpowah.orb.APOrbs.ADV_ORB_ITEM.get());
+                            }
+                        } catch (Throwable t) {
+                            // powah missing — orbs unregistered
+                        }
                     })
                     .build());
 
@@ -93,6 +103,17 @@ public final class AppliedPowah {
                 LOG.info("Registered energizing rod beam renderer");
             } catch (Throwable t) {
                 LOG.warn("Rod renderer not registered: {}", t.toString());
+            }
+            try {
+                if (net.minecraftforge.fml.ModList.get().isLoaded("powah")
+                        && com.coala.appliedpowah.orb.APOrbs.ORB_MENU != null) {
+                    net.minecraft.client.gui.screens.MenuScreens.register(
+                            com.coala.appliedpowah.orb.APOrbs.ORB_MENU.get(),
+                            com.coala.appliedpowah.orb.EnergizingOrbScreen::new);
+                    LOG.info("Registered energizing orb screen");
+                }
+            } catch (Throwable t) {
+                LOG.warn("Orb screen not registered: {}", t.toString());
             }
         });
     }
