@@ -1,6 +1,6 @@
 ---
 navigation:
-  parent: ap_intro/ap_intro-index.md
+  parent: applied_powah:ap_intro/ap_intro-index.md
   title: Configuration
   position: 50
 ---

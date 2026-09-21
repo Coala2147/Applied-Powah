@@ -44,10 +44,6 @@ public final class AppliedPowah {
                     })
                     .displayItems((params, output) -> {
                         try {
-                            output.accept(com.coala.appliedpowah.guide.APGuide.BOOK.get());
-                        } catch (Throwable ignored) {
-                        }
-                        try {
                             output.accept(APCells.SUPER_DENSE_ITEM.get());
                             output.accept(APCells.EXTREME_DENSE_ITEM.get());
                         } catch (Throwable t) {
@@ -74,7 +70,6 @@ public final class AppliedPowah {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         APConfig.register();
         TABS.register(bus);
-        com.coala.appliedpowah.guide.APGuide.register(bus);
         bus.addListener(AppliedPowah::onClientSetup);
 
         boolean ae2 = isLoaded("ae2");
@@ -98,11 +93,6 @@ public final class AppliedPowah {
                 LOG.info("Registered energizing rod beam renderer");
             } catch (Throwable t) {
                 LOG.warn("Rod renderer not registered: {}", t.toString());
-            }
-            try {
-                com.coala.appliedpowah.guide.APGuideMe.registerClient();
-            } catch (Throwable t) {
-                LOG.warn("GuideME registration failed: {}", t.toString());
             }
         });
     }

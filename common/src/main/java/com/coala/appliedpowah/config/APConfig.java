@@ -29,6 +29,9 @@ public final class APConfig {
         public final ForgeConfigSpec.LongValue meBurstFe;
         public final ForgeConfigSpec.BooleanValue rodsKeepEnergyOnBreak;
         public final ForgeConfigSpec.BooleanValue orbMultiFacing;
+        public final ForgeConfigSpec.BooleanValue orbAutoExport;
+        public final ForgeConfigSpec.IntValue orbExportItemsPerTick;
+        public final ForgeConfigSpec.BooleanValue orbPullFromNetwork;
 
         Common(ForgeConfigSpec.Builder b) {
             b.push("charging_rod");
@@ -51,9 +54,17 @@ public final class APConfig {
 
             b.push("energizing_orb");
             orbMultiFacing = b
-                    .comment("If true, AP energizing orbs may connect to the ME network on more than the bottom face "
-                            + "(rod-like multi-face). Default false = bottom-only (ExtendedAE Caner-style).")
+                    .comment("Orb block can rotate / use a non-up visual facing. ME network connection remains BOTTOM-ONLY.")
                     .define("orbMultiFacing", false);
+            orbAutoExport = b
+                    .comment("Auto-push finished products like ExtendedAE ExInscriber (adjacent inventories / ME when enabled). Rate-limited per tick.")
+                    .define("orbAutoExport", false);
+            orbExportItemsPerTick = b
+                    .comment("Max item count auto-exported per orb per tick (ExInscriber-style rate control)")
+                    .defineInRange("orbExportItemsPerTick", 8, 1, 64);
+            orbPullFromNetwork = b
+                    .comment("Advanced orb only. ME orb NEVER pulls AE/FE from the network (rod-fed only).")
+                    .define("orbPullFromNetwork", true);
             b.pop();
         }
     }

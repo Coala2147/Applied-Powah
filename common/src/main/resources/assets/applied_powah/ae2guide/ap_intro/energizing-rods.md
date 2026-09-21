@@ -1,6 +1,6 @@
 ---
 navigation:
-  parent: ap_intro/ap_intro-index.md
+  parent: applied_powah:ap_intro/ap_intro-index.md
   title: Energizing rods
   position: 20
 item_ids:

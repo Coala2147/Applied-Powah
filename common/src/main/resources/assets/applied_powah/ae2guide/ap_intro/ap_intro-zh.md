@@ -1,6 +1,6 @@
 ---
 navigation:
-  parent: ap_intro/ap_intro-index.md
+  parent: applied_powah:ap_intro/ap_intro-index.md
   title: Chinese / 中文
   position: 90
 categories:
