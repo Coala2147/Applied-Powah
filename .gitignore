@@ -38,8 +38,9 @@ Desktop.ini
 libs/
 
 # ===== Local art WIP (not shipped) =====
-asset/
-assets/
+# 仅忽略仓库根目录的 asset(s)，不要误伤 common/src/main/resources/assets
+/asset/
+/assets/
 
 # ===== Local build products (fixed output path; do not upload) =====
 releases/
