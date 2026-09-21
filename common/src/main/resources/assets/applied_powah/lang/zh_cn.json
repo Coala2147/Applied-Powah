@@ -1,5 +1,9 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
+  "item.applied_powah.guide_book": "Applied Powah 指南",
+  "applied_powah.tooltip.stored_energy": "已存储能源: %s/%s AE (%s)",
+  "applied_powah.tooltip.rod.buffer": "最大缓存: %s %s",
+  "applied_powah.tooltip.rod.transfer": "最大输出: %s %s/t",
   "block.applied_powah.super_dense_energy_cell": "超密能源元件",
   "block.applied_powah.extreme_dense_energy_cell": "极密能源元件",
   "block.applied_powah.ae_energizing_rod_starter": "AE 充能棒（初级）",

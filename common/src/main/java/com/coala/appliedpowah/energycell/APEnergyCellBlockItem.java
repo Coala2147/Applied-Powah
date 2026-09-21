@@ -1,45 +1,23 @@
 package com.coala.appliedpowah.energycell;
 
-import appeng.block.networking.EnergyCellBlock;
-import appeng.block.AEBaseBlockItem;
-import com.coala.appliedpowah.client.TooltipStyle;
-import net.minecraft.network.chat.Component;
+import appeng.block.networking.EnergyCellBlockItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-
-import java.util.List;
 
 /**
- * Energy cell item. Tooltip mirrors AE2 EnergyCellBlockItem:
- * stored energy only (light gray). Guide content is in GuideME, not on the item tooltip.
+ * Energy cell item — extends AE2's {@link EnergyCellBlockItem} so the mechanism
+ * matches stock AE2 cells:
+ * <ul>
+ * <li>{@code IAEItemPowerStorage} (inject/extract on the item, charger charge-rate)</li>
+ * <li>AE2 {@code Tooltips.energyStorageComponent} wording</li>
+ * <li>client item model property {@code ae2:fill_level} (registered by AE2 for every
+ * {@code EnergyCellBlockItem})</li>
+ * </ul>
+ * NBT key {@code internalCurrentPower} is the same as AE2.
  */
-public class APEnergyCellBlockItem extends AEBaseBlockItem {
+public class APEnergyCellBlockItem extends EnergyCellBlockItem {
 
     public APEnergyCellBlockItem(Block block, Item.Properties props) {
         super(block, props);
-    }
-
-    public double getMaxEnergyCapacity() {
-        return ((EnergyCellBlock) getBlock()).getMaxPower();
-    }
-
-    public double getStoredPower(ItemStack stack) {
-        var tag = stack.getTag();
-        return tag == null ? 0 : tag.getDouble("internalCurrentPower");
-    }
-
-    @Override
-    @OnlyIn(Dist.CLIENT)
-    public void addCheckedInformation(ItemStack stack, Level level, List<Component> lines, TooltipFlag flag) {
-        double max = getMaxEnergyCapacity();
-        if (max <= 0) {
-            return;
-        }
-        lines.add(TooltipStyle.storedEnergy(getStoredPower(stack), max));
     }
 }
