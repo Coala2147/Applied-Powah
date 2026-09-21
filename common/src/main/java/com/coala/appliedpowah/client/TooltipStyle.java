@@ -8,8 +8,8 @@ import java.util.Locale;
 
 /**
  * AE2-aligned tooltip builders.
- * Energy/spec lines use light gray ({@link ChatFormatting#GRAY}), non-italic —
- * matching AE2 {@code NORMAL_TOOLTIP_TEXT} / Powah label styling, not dark gray.
+ * Energy lines use light gray ({@link ChatFormatting#GRAY}), non-italic —
+ * same family as AE2 {@code NORMAL_TOOLTIP_TEXT}.
  */
 public final class TooltipStyle {
 
@@ -45,15 +45,6 @@ public final class TooltipStyle {
         return Component.translatable("applied_powah.tooltip.stored_energy",
                         formatAmount(cur), formatAmount(max), formatPercent(cur, max))
                 .withStyle(ChatFormatting.GRAY);
-    }
-
-    public static MutableComponent guideHint() {
-        return Component.translatable("applied_powah.tooltip.guide_hint")
-                .withStyle(ChatFormatting.GRAY);
-    }
-
-    public static MutableComponent spec(String key, Object... args) {
-        return Component.translatable(key, args).withStyle(ChatFormatting.GRAY);
     }
 
     private static String trim(double d) {

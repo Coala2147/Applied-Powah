@@ -15,10 +15,8 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import java.util.List;
 
 /**
- * Energy cell item — stores/shows AE power like AE2 EnergyCellBlockItem.
- * NBT key: internalCurrentPower (same as AE2).
- * Tooltip sentence follows AE2 {@code Tooltips.energyStorageComponent} wording;
- * body text is light gray (ChatFormatting.GRAY).
+ * Energy cell item. Tooltip mirrors AE2 EnergyCellBlockItem:
+ * stored energy only (light gray). Guide content is in GuideME, not on the item tooltip.
  */
 public class APEnergyCellBlockItem extends AEBaseBlockItem {
 
@@ -42,7 +40,6 @@ public class APEnergyCellBlockItem extends AEBaseBlockItem {
         if (max <= 0) {
             return;
         }
-        lines.add(TooltipStyle.guideHint());
         lines.add(TooltipStyle.storedEnergy(getStoredPower(stack), max));
     }
 }

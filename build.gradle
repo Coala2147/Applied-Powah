@@ -67,6 +67,8 @@ dependencies {
 
     // JEI optional at compile — @JeiPlugin class only loads when JEI is present
     compileOnly fg.deobf(files("libs/jei-1.20.1-forge-15.3.0.4.jar"))
+    // GuideME is a hard dependency of AE2 15.4.10 (modId guideme); compile against it for our guide
+    compileOnly fg.deobf(files("libs/guideme-20.1.15.jar"))
 }
 
 def replaceProps = [

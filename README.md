@@ -4,6 +4,8 @@ Integration addon for **Applied Energistics 2** and **Powah** on Minecraft **1.2
 
 Provides high-density AE energy cells and AE/ME Energizing Rods that draw energy from an ME network and supply nearby Powah Energizing Orbs.
 
+In-game documentation uses **GuideME** (same system as AE2), not a custom GUI book. Hold **G** on Applied Powah items after the guide pages declare `item_ids`.
+
 - **License**: LGPL-3.0-only
 - **Mod ID**: `applied_powah`
 - **Java package**: `com.coala.appliedpowah`
@@ -23,7 +25,7 @@ Provides high-density AE energy cells and AE/ME Energizing Rods that draw energy
 | Collision | Thin rod shape (Powah-like), not a full cube |
 | Beam | Visual beam while transferring energy to an orb (borrowed textures until 1.0) |
 
-Item tooltips follow AE2 wording and light-gray styling (`Stored Energy: … AE (…%)`). Rod items show buffer/output/source specs only; they do not fabricate live stored energy.
+Item tooltips follow AE2 wording and light-gray styling (`Stored Energy: … AE (…%)`). Rod items do not fabricate live stored energy. Behaviour details are in the GuideME book (`assets/applied_powah/applied_powah_guide/`).
 
 ## Dependencies
 
@@ -34,6 +36,7 @@ Item tooltips follow AE2 wording and light-gray styling (`Stored Energy: … AE 
 | Powah 5+ | Strongly recommended (Energizing Orb and recipe source) |
 | Applied Flux 1+ | Required for ME rod FE extraction |
 | JEI 15+ (optional) | Rod catalysts on the Powah Energizing category |
+| GuideME (via AE2) | In-game guide book pages |
 
 ## Building
 

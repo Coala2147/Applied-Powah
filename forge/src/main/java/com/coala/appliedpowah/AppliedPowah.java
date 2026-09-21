@@ -99,6 +99,11 @@ public final class AppliedPowah {
             } catch (Throwable t) {
                 LOG.warn("Rod renderer not registered: {}", t.toString());
             }
+            try {
+                com.coala.appliedpowah.guide.APGuideMe.registerClient();
+            } catch (Throwable t) {
+                LOG.warn("GuideME registration failed: {}", t.toString());
+            }
         });
     }
 
