@@ -17,14 +17,9 @@ import net.minecraftforge.items.ItemStackHandler;
 
 /**
  * Advanced Energizing Orb.
- * <ul>
- *   <li>4 rod slots × up to 16 AP rods; all rods must be the same energy family
- *       (all AE or all ME); different tiers are allowed.</li>
- *   <li>Energy cache = Σ count × rod capacity. Rods create/expand this cache.</li>
- *   <li>Network pull fills that cache (AE2 energy-cell / wireless-terminal style),
- *       not just the current recipe remainder.</li>
- *   <li>Recipes consume from the cache; leftover energy stays for the next craft.</li>
- * </ul>
+ * 4 rod slots × ≤16 AP rods; same energy family (AE or ME), mixed tiers OK.
+ * Cache = Σ n×C(t). Network pull fills that cache (energy-cell style).
+ * Recipes consume recipeEnergy only; leftover cache stays.
  */
 public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity {
 
@@ -48,7 +43,6 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
             if (stack.isEmpty() || !(stack.getItem() instanceof RodBlockItem rod)) {
                 return false;
             }
-            // Family lock: all occupied slots must share AE or ME.
             Boolean family = null;
             for (int i = 0; i < ROD_SLOTS; i++) {
                 if (i == slot) {
@@ -103,7 +97,6 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         return true;
     }
 
-    /** Σ n_i × C(t_i) in internal FE. */
     public long rodCapacitySum() {
         long sum = 0;
         for (int i = 0; i < ROD_SLOTS; i++) {
@@ -111,9 +104,7 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
             if (s.isEmpty() || !(s.getItem() instanceof RodBlockItem rod)) {
                 continue;
             }
-            // Internal buffer is always FE; AE display divides by 2 later.
-            long per = rod.getTier().capacityFe;
-            sum += per * (long) s.getCount();
+            sum += rod.getTier().capacityFe * (long) s.getCount();
         }
         return sum;
     }
@@ -125,7 +116,6 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
 
     @Override
     public long getDisplayEnergy() {
-        // Internal cache is FE; AE family displays as AE (FE/2), matching rods.
         return isAeDisplay() ? bufferFe / 2 : bufferFe;
     }
 
@@ -140,10 +130,6 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         return Math.max(recipeCap, 0);
     }
 
-    /**
-     * Rod feed fills the rod-defined cache (not only current recipe).
-     * ME orb override stays recipe-only; Advanced is cache-based.
-     */
     @Override
     public long fillEnergy(long amount) {
         if (level == null || amount <= 0 || !rodsPresent()) {
@@ -166,10 +152,7 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         return filled;
     }
 
-    /**
-     * Network pull fills the rod cache like AE2 cells / wireless terminals drawing
-     * from the grid — independent of whether a recipe is currently loaded.
-     */
+    /** Network fills rod cache like AE2 energy cells — even without a loaded recipe. */
     @Override
     protected void pullFromNetwork(IGridNode node) {
         if (!APConfig.COMMON.orbPullFromNetwork.get() || !rodsPresent() || node == null || !node.isActive()) {
@@ -181,7 +164,6 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         }
         long room = Math.max(0, cacheMax - bufferFe);
         if (room <= 0) {
-            // Cache full — still try to finish a ready recipe.
             if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
                 completeIfPossible();
             }

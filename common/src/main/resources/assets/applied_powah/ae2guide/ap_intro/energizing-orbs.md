@@ -15,7 +15,8 @@ categories:
 Applied Powah adds two grid-aware machines that run Powah **Energizing** recipes
 (`powah:energizing`): the **ME Energizing Orb** and the **Advanced Energizing Orb**.
 
-Both connect to an ME network on the **bottom** face only (cable under the block).
+Both connect to an ME network on **any face** (COVERED cable). The block appears
+in ME topology / network tool as an Applied Powah device.
 
 ## ME Energizing Orb
 

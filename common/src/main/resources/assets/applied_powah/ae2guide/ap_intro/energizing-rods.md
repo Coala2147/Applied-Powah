@@ -1,8 +1,11 @@
 ---
 navigation:
-  parent: applied_powah:ap_intro/ap_intro-index.md
+  parent: ap_intro/ap_intro-index.md
   title: Energizing rods
   position: 20
+  icon: powah:energizing_rod_starter
+categories:
+  - Applied Powah
 item_ids:
   - applied_powah:ae_energizing_rod_starter
   - applied_powah:ae_energizing_rod_basic
@@ -18,39 +21,27 @@ item_ids:
   - applied_powah:me_energizing_rod_niotic
   - applied_powah:me_energizing_rod_spirited
   - applied_powah:me_energizing_rod_nitro
-categories:
-- applied powah
 ---
 
 # Energizing rods
 
-Seven tiers each for **AE** and **ME**:
-starter → basic → hardened → blazing → niotic → spirited → nitro.
+Feed a nearby **Powah Energizing Orb** using energy from your **ME network**.
 
-Full blocks with thin Powah-like collision. Not cable-bus parts.
+Seven tiers, matching Powah: starter → basic → hardened → blazing → niotic → spirited → nitro.
 
-## Energy
+| Rod | Energy used |
+|-----|-------------|
+| **AE** energizing rod | AE from the ME grid |
+| **ME** energizing rod | FE from the ME network (needs Applied Flux) |
 
-| Type | Source | Tooltip unit |
-|------|--------|--------------|
-| AE rod | AE in the ME grid | AE (FE/2) |
-| ME rod | FE in the ME network (Applied Flux) | FE |
+## How to use
 
-Buffer / transfer follow Powah `energizing_rods` for the same tier.
+1. Place the rod **next to an AE2 cable** — it will face that cable.
+2. Put a **Powah Energizing Orb** nearby, with a valid recipe inside.
+3. When the network has power (and a free channel), the rod pulls energy and pushes it into the orb. A beam shows it is working.
 
-## Rules
+Item tooltips show that tier’s **max buffer** and **max output** (same idea as Powah rods).
 
-- Connects to AE2 on the **facing** side; place next to a cable.
-- Requires an active node (channel). Idle draw 1 AE/t.
-- AE pull keeps a grid reserve (default 5%, configurable).
-- Fixed pull interval — no tick acceleration.
-- Feeds a nearby Powah Energizing Orb when that orb has a valid recipe.
+Mined rods do not keep internal energy.
 
-## Drops
-
-With `rodsKeepEnergyOnBreak=true` (default), mined rods **keep** their FE buffer on the item (Powah-style `storeToStack`). Placement restores the buffer from NBT.
-
-## Tooltip
-
-- Label gray, value darker gray: `Buffer: 20M FE` / `Transfer: 200k FE/t`
-- If the item carries a mined buffer, an AE2-style stored-energy line appears.
+Without **Applied Flux**, ME rods cannot pull FE (their recipes are disabled too).

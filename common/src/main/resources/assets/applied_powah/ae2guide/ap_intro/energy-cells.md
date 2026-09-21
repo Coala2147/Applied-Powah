@@ -1,60 +1,31 @@
 ---
 navigation:
-  parent: applied_powah:ap_intro/ap_intro-index.md
+  parent: ap_intro/ap_intro-index.md
   title: Energy cells
   position: 10
+  icon: applied_powah:super_dense_energy_cell
+categories:
+  - Applied Powah
 item_ids:
   - applied_powah:super_dense_energy_cell
   - applied_powah:extreme_dense_energy_cell
-categories:
-- applied powah
 ---
 
 # Energy cells
 
-High-capacity AE storage for ME networks.
+High-capacity AE storage for your ME network — same idea as AE2 energy cells, just bigger.
 
-## Super dense energy cell
+| Cell | Capacity | How to craft |
+|------|----------|----------------|
+| Super dense energy cell | 12.8M AE | 8× AE2 energy cell + calculation processor |
+| Extreme dense energy cell | 102.4M AE | 8× super dense + calculation processor |
 
-Capacity **12.8M AE**. Crafted from eight AE2 energy cells and one calculation processor.
+## How to use
 
-<Row gap="12">
-  <ItemImage id="ae2:energy_cell" scale="3" />
-  <ItemImage id="ae2:energy_cell" scale="3" />
-  <ItemImage id="ae2:energy_cell" scale="3" />
-</Row>
-<Row gap="12">
-  <ItemImage id="ae2:energy_cell" scale="3" />
-  <ItemImage id="ae2:calculation_processor" scale="3" />
-  <ItemImage id="ae2:energy_cell" scale="3" />
-</Row>
-<Row gap="12">
-  <ItemImage id="ae2:energy_cell" scale="3" />
-  <ItemImage id="ae2:energy_cell" scale="3" />
-  <ItemImage id="ae2:energy_cell" scale="3" />
-</Row>
+1. Place the cell next to an ME cable (or any network block that connects).
+2. It stores AE for the network, like a normal AE2 cell.
+3. Hover the item to see stored energy: `已存储能源: x / y AE`.
 
-<Row>
-  <ItemImage id="applied_powah:super_dense_energy_cell" scale="4" />
-</Row>
+Breaking the cell in survival keeps the stored AE on the dropped item.
 
-<RecipeFor id="applied_powah:super_dense_energy_cell" fallbackText="Workbench recipe: 8× ae2:energy_cell + ae2:calculation_processor" />
-
-## Extreme dense energy cell
-
-Capacity **102.4M AE**. Eight super dense cells plus one calculation processor.
-
-<RecipeFor id="applied_powah:extreme_dense_energy_cell" fallbackText="Workbench recipe: 8× applied_powah:super_dense_energy_cell + ae2:calculation_processor" />
-
-## Behaviour
-
-- Acts as an AE2 energy cell on the ME network.
-- Item NBT key: `internalCurrentPower`.
-- Survival dismantle exports stored AE onto the dropped item (AE2 path).
-- Creative pick-block copies stored AE onto the item (this addon syncs power for cells).
-
-## Tooltip
-
-Label in light gray; value in a deeper gray (Powah-style):
-
-`Stored Energy: 0/12.8M AE (0%)`
+<RecipeFor id="applied_powah:super_dense_energy_cell" fallbackText="See the Recipes page." />
