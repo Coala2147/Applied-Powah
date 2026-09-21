@@ -4,13 +4,31 @@ navigation:
   position: 80
 item_ids:
   - applied_powah:guide_book
+categories:
+- applied powah
 ---
 
-# Applied Powah
+# Add-on: Applied Powah
 
 Applied Powah is an **Applied Energistics 2** addon for Minecraft 1.20.1 Forge.
 It adds high-density AE energy cells and full-block energizing rods that draw
 energy from an ME network and supply nearby Powah Energizing Orbs.
+
+**This mod changes gameplay and adds items — install on both server and client.**
+
+## Sections
+
+### Energy cells
+
+- [Super dense energy cell](energy-cells.md)
+- [Extreme dense energy cell](energy-cells.md)
+
+### Energizing rods
+
+- [AE / ME rods](energizing-rods.md)
+- [Recipes](recipes.md)
+- [Placement](placement.md)
+- [Configuration](config.md)
 
 ## Dependencies
 
@@ -18,16 +36,8 @@ energy from an ME network and supply nearby Powah Energizing Orbs.
 |-----|-------------|
 | Minecraft 1.20.1 + Forge 47+ | Required |
 | Applied Energistics 2 15+ | Required |
-| GuideME | Required (AE2 dependency); this content is merged into the AE2 guide |
+| GuideME | Required (AE2 dependency) |
 | Powah 5+ | Recommended |
-| Applied Flux 1+ | Required for ME rod FE extraction |
+| Applied Flux 1+ | ME rod FE extraction |
 
-## Pages
-
-- [Energy cells](energy-cells.md)
-- [Energizing rods](energizing-rods.md)
-- [Placement](placement.md)
-- [Recipes](recipes.md)
-- [Configuration](config.md)
-
-Hold **G** while hovering an Applied Powah item to open the matching page (via `item_ids`).
+Hold **G** on an Applied Powah item to open its page.

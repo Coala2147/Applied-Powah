@@ -18,7 +18,8 @@ public final class APConfig {
     }
 
     public static void register() {
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, COMMON_SPEC);
+        // Custom file name: applied_powah.toml (no -common suffix).
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, COMMON_SPEC, "applied_powah.toml");
     }
 
     public static final class Common {
@@ -26,6 +27,8 @@ public final class APConfig {
         public final ForgeConfigSpec.DoubleValue networkReserveRatio;
         public final ForgeConfigSpec.LongValue aeBurstAe;
         public final ForgeConfigSpec.LongValue meBurstFe;
+        public final ForgeConfigSpec.BooleanValue rodsKeepEnergyOnBreak;
+        public final ForgeConfigSpec.BooleanValue orbMultiFacing;
 
         Common(ForgeConfigSpec.Builder b) {
             b.push("charging_rod");
@@ -41,6 +44,16 @@ public final class APConfig {
             meBurstFe = b
                     .comment("FE extracted per burst attempt (ME rod, Applied Flux)")
                     .defineInRange("meBurstFe", 20_000_000L, 1L, Long.MAX_VALUE / 4);
+            rodsKeepEnergyOnBreak = b
+                    .comment("Powah-style drops: mined/unplaced rods keep their FE buffer on the item NBT")
+                    .define("rodsKeepEnergyOnBreak", true);
+            b.pop();
+
+            b.push("energizing_orb");
+            orbMultiFacing = b
+                    .comment("If true, AP energizing orbs may connect to the ME network on more than the bottom face "
+                            + "(rod-like multi-face). Default false = bottom-only (ExtendedAE Caner-style).")
+                    .define("orbMultiFacing", false);
             b.pop();
         }
     }

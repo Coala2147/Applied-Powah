@@ -19,6 +19,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import appeng.block.AEBaseEntityBlock;
+import com.coala.appliedpowah.config.APConfig;
 import com.coala.appliedpowah.energycell.APCells;
 
 import javax.annotation.Nullable;
@@ -150,6 +151,56 @@ public class EnergizingRodBlock extends AEBaseEntityBlock<EnergizingRodBlockEnti
         }
     }
 
+    /** Powah-style drop: keep buffer FE on the item (see AbstractBlock.playerDestroy / storeToStack). */
+    @Override
+    public void playerDestroy(net.minecraft.world.level.Level level, net.minecraft.world.entity.player.Player player,
+                              BlockPos pos, BlockState state, @Nullable BlockEntity te,
+                              net.minecraft.world.item.ItemStack tool) {
+        if (te instanceof EnergizingRodBlockEntity rod && APConfig.COMMON.rodsKeepEnergyOnBreak.get()) {
+            var stack = rod.writeBufferToStack(new net.minecraft.world.item.ItemStack(this));
+            popResource(level, pos, stack);
+            player.awardStat(net.minecraft.stats.Stats.BLOCK_MINED.get(this));
+            player.causeFoodExhaustion(0.005F);
+            return;
+        }
+        super.playerDestroy(level, player, pos, state, te, tool);
+    }
+
+    @Override
+    public net.minecraft.world.item.ItemStack getCloneItemStack(
+            BlockState state, net.minecraft.world.phys.HitResult target,
+            BlockGetter level, BlockPos pos, net.minecraft.world.entity.player.Player player) {
+        var stack = super.getCloneItemStack(state, target, level, pos, player);
+        if (level.getBlockEntity(pos) instanceof EnergizingRodBlockEntity rod
+                && APConfig.COMMON.rodsKeepEnergyOnBreak.get()) {
+            return rod.writeBufferToStack(stack);
+        }
+        return stack;
+    }
+
+    @Override
+    @Deprecated
+    public net.minecraft.world.item.ItemStack getCloneItemStack(BlockGetter level, BlockPos pos, BlockState state) {
+        var stack = super.getCloneItemStack(level, pos, state);
+        if (level.getBlockEntity(pos) instanceof EnergizingRodBlockEntity rod
+                && APConfig.COMMON.rodsKeepEnergyOnBreak.get()) {
+            return rod.writeBufferToStack(stack);
+        }
+        return stack;
+    }
+
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state,
+                            @Nullable net.minecraft.world.entity.LivingEntity placer,
+                            net.minecraft.world.item.ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide
+                && level.getBlockEntity(pos) instanceof EnergizingRodBlockEntity rod
+                && APConfig.COMMON.rodsKeepEnergyOnBreak.get()) {
+            rod.readBufferFromStack(stack);
+        }
+    }
+
     @Override
     public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
         super.neighborChanged(state, level, pos, block, fromPos, isMoving);
@@ -157,7 +208,13 @@ public class EnergizingRodBlock extends AEBaseEntityBlock<EnergizingRodBlockEnti
             return;
         }
         if (!canSurvive(state, level, pos)) {
-            dropResources(state, level, pos);
+            // Cable lost: drop with Powah-style buffer when enabled.
+            if (APConfig.COMMON.rodsKeepEnergyOnBreak.get()
+                    && level.getBlockEntity(pos) instanceof EnergizingRodBlockEntity rod) {
+                popResource(level, pos, rod.writeBufferToStack(new net.minecraft.world.item.ItemStack(this)));
+            } else {
+                dropResources(state, level, pos);
+            }
             level.removeBlock(pos, false);
             return;
         }

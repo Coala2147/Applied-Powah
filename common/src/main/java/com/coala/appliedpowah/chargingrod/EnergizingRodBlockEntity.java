@@ -67,6 +67,25 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
         return lastPushed > 0 && !orbPos.equals(BlockPos.ZERO);
     }
 
+    /** Powah-style item NBT key for stored FE buffer. */
+    public static final String NBT_BUFFER_FE = "ap_buffer_fe";
+
+    public net.minecraft.world.item.ItemStack writeBufferToStack(net.minecraft.world.item.ItemStack stack) {
+        if (bufferFe > 0) {
+            stack.getOrCreateTag().putLong(NBT_BUFFER_FE, bufferFe);
+        }
+        return stack;
+    }
+
+    public void readBufferFromStack(net.minecraft.world.item.ItemStack stack) {
+        var tag = stack.getTag();
+        if (tag != null && tag.contains(NBT_BUFFER_FE)) {
+            RodTier t = tier();
+            bufferFe = Math.max(0, Math.min(t.capacityFe, tag.getLong(NBT_BUFFER_FE)));
+            setChanged();
+        }
+    }
+
     public long getDisplayEnergy() {
         return isAe() ? bufferFe / 2 : bufferFe;
     }

@@ -18,38 +18,39 @@ item_ids:
   - applied_powah:me_energizing_rod_niotic
   - applied_powah:me_energizing_rod_spirited
   - applied_powah:me_energizing_rod_nitro
+categories:
+- applied powah
 ---
 
 # Energizing rods
 
-Seven tiers each for **AE** and **ME** rods:
+Seven tiers each for **AE** and **ME**:
 starter → basic → hardened → blazing → niotic → spirited → nitro.
 
-Rods are full blocks (not cable-bus parts) with a thin collision shape.
+Full blocks with thin Powah-like collision. Not cable-bus parts.
 
-## Network energy
+## Energy
 
-| Type | Source | Unit |
-|------|--------|------|
-| AE energizing rod | AE in the ME grid | AE |
-| ME energizing rod | FE in the ME network (Applied Flux) | FE |
+| Type | Source | Tooltip unit |
+|------|--------|--------------|
+| AE rod | AE in the ME grid | AE (FE/2) |
+| ME rod | FE in the ME network (Applied Flux) | FE |
 
-Buffer and transfer follow Powah `energizing_rods` for the same tier.
-AE item tooltip values are FE/2 (AE2 conversion 1 AE = 2 FE).
+Buffer / transfer follow Powah `energizing_rods` for the same tier.
 
 ## Rules
 
-- Connects to AE2 on the **facing** side only.
-- Requires an active grid node (channel). Idle draw is 1 AE/t.
-- AE extraction keeps a configurable grid reserve (default 5%).
-- Fixed pull interval; no tick acceleration.
-- Supplies a nearby Powah Energizing Orb when that orb holds a valid recipe.
-- Mined rod items do not retain internal energy.
+- Connects to AE2 on the **facing** side; place next to a cable.
+- Requires an active node (channel). Idle draw 1 AE/t.
+- AE pull keeps a grid reserve (default 5%, configurable).
+- Fixed pull interval — no tick acceleration.
+- Feeds a nearby Powah Energizing Orb when that orb has a valid recipe.
 
-## Applied Flux missing
+## Drops
 
-ME rod recipes are disabled. Existing ME rod blocks will not extract FE until Applied Flux is installed.
+With `rodsKeepEnergyOnBreak=true` (default), mined rods **keep** their FE buffer on the item (Powah-style `storeToStack`). Placement restores the buffer from NBT.
 
-## Item tooltip
+## Tooltip
 
-Shows **buffer** and **transfer** specs only (not live stored energy).
+- Label gray, value darker gray: `Buffer: 20M FE` / `Transfer: 200k FE/t`
+- If the item carries a mined buffer, an AE2-style stored-energy line appears.

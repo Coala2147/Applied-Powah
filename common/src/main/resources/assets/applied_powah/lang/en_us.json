@@ -1,9 +1,9 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
   "item.applied_powah.guide_book": "Applied Powah Guide",
-  "applied_powah.tooltip.stored_energy": "Stored Energy: %s/%s AE (%s)",
-  "applied_powah.tooltip.rod.buffer": "Buffer: %s %s",
-  "applied_powah.tooltip.rod.transfer": "Transfer: %s %s/t",
+  "applied_powah.tooltip.stored_energy_label": "Stored Energy",
+  "applied_powah.tooltip.rod.buffer_label": "Buffer",
+  "applied_powah.tooltip.rod.transfer_label": "Transfer",
   "block.applied_powah.super_dense_energy_cell": "Super Dense Energy Cell",
   "block.applied_powah.extreme_dense_energy_cell": "Extreme Dense Energy Cell",
   "block.applied_powah.ae_energizing_rod_starter": "AE Energizing Rod (Starter)",

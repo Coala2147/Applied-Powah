@@ -7,9 +7,10 @@ import net.minecraft.network.chat.MutableComponent;
 import java.util.Locale;
 
 /**
- * AE2-aligned tooltip builders.
- * Energy lines use light gray ({@link ChatFormatting#GRAY}), non-italic —
- * same family as AE2 {@code NORMAL_TOOLTIP_TEXT}.
+ * AE2/Powah-aligned tooltip composition.
+ * Labels: light gray ({@link ChatFormatting#GRAY}).
+ * Numeric payload (e.g. {@code 0/20M FE}): deeper {@link ChatFormatting#DARK_GRAY},
+ * matching Powah energy tooltips and AE2 number emphasis.
  */
 public final class TooltipStyle {
 
@@ -40,11 +41,19 @@ public final class TooltipStyle {
         return String.format(Locale.ROOT, "%.1f%%", pct);
     }
 
-    /** AE2 sentence: 已存储能源: {cur}/{max} AE ({pct}) */
+    /** label(GRAY) + ": " + numbers DARK_GRAY — AE2 sentence form. */
+    public static MutableComponent labeled(String labelKey, String valueText) {
+        return Component.empty()
+                .append(Component.translatable(labelKey).withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(valueText).withStyle(ChatFormatting.DARK_GRAY));
+    }
+
+    /** Stored Energy: {cur}/{max} AE ({pct}) */
     public static MutableComponent storedEnergy(double cur, double max) {
-        return Component.translatable("applied_powah.tooltip.stored_energy",
-                        formatAmount(cur), formatAmount(max), formatPercent(cur, max))
-                .withStyle(ChatFormatting.GRAY);
+        String value = formatAmount(cur) + "/" + formatAmount(max) + " AE ("
+                + formatPercent(cur, max) + ")";
+        return labeled("applied_powah.tooltip.stored_energy_label", value);
     }
 
     private static String trim(double d) {
