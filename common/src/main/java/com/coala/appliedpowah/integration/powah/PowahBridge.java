@@ -9,15 +9,34 @@ import owmii.powah.Powah;
 import owmii.powah.block.energizing.EnergizingOrbTile;
 
 /**
- * Powah / AP orb bridge. Rods feed both Powah {@link EnergizingOrbTile}
- * and AP {@link EnergyAcceptingOrb} (ME orb + Advanced orb).
+ * Finds and feeds Powah orbs and Applied Powah orbs (ME / Advanced).
  */
 public final class PowahBridge {
     private PowahBridge() {
     }
 
-    public static boolean isFeedableOrb(BlockEntity be) {
+    private static boolean isFeedable(BlockEntity be) {
         return be instanceof EnergizingOrbTile || be instanceof EnergyAcceptingOrb;
+    }
+
+    private static boolean hasRecipe(BlockEntity be) {
+        if (be instanceof EnergizingOrbTile powah) {
+            return powah.containRecipe();
+        }
+        if (be instanceof EnergyAcceptingOrb ap) {
+            return ap.containRecipe();
+        }
+        return false;
+    }
+
+    private static long fill(BlockEntity be, long amount) {
+        if (be instanceof EnergizingOrbTile powah) {
+            return Math.max(0L, powah.fillEnergy(amount));
+        }
+        if (be instanceof EnergyAcceptingOrb ap) {
+            return Math.max(0L, ap.fillEnergy(amount));
+        }
+        return 0;
     }
 
     public static BlockPos findNearbyOrb(Level level, BlockPos from, BlockPos remembered) {
@@ -26,7 +45,7 @@ public final class PowahBridge {
         }
         if (remembered != null && !remembered.equals(BlockPos.ZERO)) {
             BlockEntity be = level.getBlockEntity(remembered);
-            if (isFeedableOrb(be)) {
+            if (isFeedable(be)) {
                 return remembered;
             }
         }
@@ -43,7 +62,7 @@ public final class PowahBridge {
         for (BlockPos pos : BlockPos.betweenClosed(
                 from.offset(-range, -range, -range),
                 from.offset(range, range, range))) {
-            if (isFeedableOrb(level.getBlockEntity(pos))) {
+            if (isFeedable(level.getBlockEntity(pos))) {
                 return pos.immutable();
             }
         }
@@ -53,7 +72,7 @@ public final class PowahBridge {
     /** @return FE accepted by the orb. */
     public static long feedNearbyOrb(Level level, BlockPos partPos, BlockPos rememberedOrb,
                                      long availableFe, long transfer) {
-        if (level == null || availableFe <= 0 || transfer <= 0) {
+        if (level == null || availableFe <= 0) {
             return 0;
         }
         BlockPos orbP = findNearbyOrb(level, partPos, rememberedOrb);
@@ -61,22 +80,13 @@ public final class PowahBridge {
             return 0;
         }
         BlockEntity be = level.getBlockEntity(orbP);
-        long fill = Math.min(availableFe, transfer);
-        if (fill <= 0) {
+        if (!hasRecipe(be)) {
             return 0;
         }
-        if (be instanceof EnergizingOrbTile orb) {
-            if (!orb.containRecipe()) {
-                return 0;
-            }
-            return Math.max(0L, orb.fillEnergy(fill));
+        long amount = Math.min(availableFe, transfer);
+        if (amount <= 0) {
+            return 0;
         }
-        if (be instanceof EnergyAcceptingOrb orb) {
-            if (!orb.containRecipe()) {
-                return 0;
-            }
-            return Math.max(0L, orb.fillEnergy(fill));
-        }
-        return 0;
+        return fill(be, amount);
     }
 }
