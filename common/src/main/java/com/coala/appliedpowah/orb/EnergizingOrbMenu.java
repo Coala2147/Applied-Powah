@@ -39,8 +39,15 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         int count = 7;
         if (orb instanceof AdvancedEnergizingOrbBlockEntity adv) {
             ItemStackHandler rods = adv.getRodInv();
+            // Right-hand vertical rod column (matches with-4-block GUI mock)
             for (int i = 0; i < AdvancedEnergizingOrbBlockEntity.ROD_SLOTS; i++) {
-                this.addSlot(new SlotItemHandler(rods, i, 8 + i * 18, 62));
+                this.addSlot(new SlotItemHandler(rods, i, 143, 14 + i * 18) {
+                    @Override
+                    public boolean mayPlace(ItemStack stack) {
+                        return stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem
+                                && super.mayPlace(stack);
+                    }
+                });
             }
             count += AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
         }

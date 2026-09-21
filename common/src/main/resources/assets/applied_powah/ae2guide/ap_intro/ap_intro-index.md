@@ -30,6 +30,10 @@ energy from an ME network and supply nearby Powah Energizing Orbs.
 - [Placement](placement.md)
 - [Configuration](config.md)
 
+### Energizing orbs
+
+- [ME / Advanced energizing orbs](energizing-orbs.md)
+
 ## Dependencies
 
 | Mod | Requirement |

@@ -36,5 +36,9 @@
   "item.applied_powah.me_energizing_rod_nitro": "ME 充能棒（下界）",
   "item.applied_powah.me_energizing_orb": "ME 充能台",
   "item.applied_powah.advanced_energizing_orb": "高级充能台",
-  "applied_powah.tooltip.progress": "反应进度: %s / %s (%s%%)"
+  "applied_powah.tooltip.progress": "反应进度: %s / %s (%s%%)",
+  "applied_powah.gui.guide": "打开充能台指南",
+  "applied_powah.gui.guide_missing": "未能打开 GuideME，请确认已安装 AE2/GuideME",
+  "applied_powah.gui.auto_export.on": "自动输出: 开（汇入 ME 网络/相邻容器）",
+  "applied_powah.gui.auto_export.off": "自动输出: 关"
 }

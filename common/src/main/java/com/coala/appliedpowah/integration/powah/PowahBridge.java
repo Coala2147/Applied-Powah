@@ -1,5 +1,6 @@
 package com.coala.appliedpowah.integration.powah;
 
+import com.coala.appliedpowah.orb.EnergyAcceptingOrb;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -7,18 +8,25 @@ import net.minecraftforge.fml.ModList;
 import owmii.powah.Powah;
 import owmii.powah.block.energizing.EnergizingOrbTile;
 
-/** Powah orb bridge — only loaded when methods are invoked under powah-present guards. */
+/**
+ * Powah / AP orb bridge. Rods feed both Powah {@link EnergizingOrbTile}
+ * and AP {@link EnergyAcceptingOrb} (ME orb + Advanced orb).
+ */
 public final class PowahBridge {
     private PowahBridge() {
     }
 
+    public static boolean isFeedableOrb(BlockEntity be) {
+        return be instanceof EnergizingOrbTile || be instanceof EnergyAcceptingOrb;
+    }
+
     public static BlockPos findNearbyOrb(Level level, BlockPos from, BlockPos remembered) {
-        if (level == null || !ModList.get().isLoaded("powah")) {
+        if (level == null) {
             return null;
         }
         if (remembered != null && !remembered.equals(BlockPos.ZERO)) {
             BlockEntity be = level.getBlockEntity(remembered);
-            if (be instanceof EnergizingOrbTile) {
+            if (isFeedableOrb(be)) {
                 return remembered;
             }
         }
@@ -26,14 +34,16 @@ public final class PowahBridge {
             return null;
         }
         int range = 4;
-        try {
-            range = Powah.config().general.energizing_range;
-        } catch (Throwable ignored) {
+        if (ModList.get().isLoaded("powah")) {
+            try {
+                range = Powah.config().general.energizing_range;
+            } catch (Throwable ignored) {
+            }
         }
         for (BlockPos pos : BlockPos.betweenClosed(
                 from.offset(-range, -range, -range),
                 from.offset(range, range, range))) {
-            if (level.getBlockEntity(pos) instanceof EnergizingOrbTile) {
+            if (isFeedableOrb(level.getBlockEntity(pos))) {
                 return pos.immutable();
             }
         }
@@ -43,7 +53,7 @@ public final class PowahBridge {
     /** @return FE accepted by the orb. */
     public static long feedNearbyOrb(Level level, BlockPos partPos, BlockPos rememberedOrb,
                                      long availableFe, long transfer) {
-        if (level == null || availableFe <= 0 || !ModList.get().isLoaded("powah")) {
+        if (level == null || availableFe <= 0 || transfer <= 0) {
             return 0;
         }
         BlockPos orbP = findNearbyOrb(level, partPos, rememberedOrb);
@@ -51,13 +61,22 @@ public final class PowahBridge {
             return 0;
         }
         BlockEntity be = level.getBlockEntity(orbP);
-        if (!(be instanceof EnergizingOrbTile orb) || !orb.containRecipe()) {
-            return 0;
-        }
         long fill = Math.min(availableFe, transfer);
         if (fill <= 0) {
             return 0;
         }
-        return Math.max(0L, orb.fillEnergy(fill));
+        if (be instanceof EnergizingOrbTile orb) {
+            if (!orb.containRecipe()) {
+                return 0;
+            }
+            return Math.max(0L, orb.fillEnergy(fill));
+        }
+        if (be instanceof EnergyAcceptingOrb orb) {
+            if (!orb.containRecipe()) {
+                return 0;
+            }
+            return Math.max(0L, orb.fillEnergy(fill));
+        }
+        return 0;
     }
 }

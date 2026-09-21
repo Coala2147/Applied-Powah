@@ -16,10 +16,15 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.items.ItemStackHandler;
 
 /**
- * Advanced Energizing Orb — endgame machine in the Powah energizing chain.
- * Temporary craft: 7× nitro Powah rods + ME Energizing Orb + AE2 energy acceptor.
- * 4 rod slots (max 16 AP rods each, same energy family).
- * May pull AE/FE from the network when config allows; unlike the ME orb.
+ * Advanced Energizing Orb.
+ * <ul>
+ *   <li>4 rod slots × up to 16 AP rods; all rods must be the same energy family
+ *       (all AE or all ME); different tiers are allowed.</li>
+ *   <li>Energy cache = Σ count × rod capacity. Rods create/expand this cache.</li>
+ *   <li>Network pull fills that cache (AE2 energy-cell / wireless-terminal style),
+ *       not just the current recipe remainder.</li>
+ *   <li>Recipes consume from the cache; leftover energy stays for the next craft.</li>
+ * </ul>
  */
 public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity {
 
@@ -40,7 +45,34 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return stack.getItem() instanceof RodBlockItem;
+            if (stack.isEmpty() || !(stack.getItem() instanceof RodBlockItem rod)) {
+                return false;
+            }
+            // Family lock: all occupied slots must share AE or ME.
+            Boolean family = null;
+            for (int i = 0; i < ROD_SLOTS; i++) {
+                if (i == slot) {
+                    continue;
+                }
+                ItemStack s = rodInv.getStackInSlot(i);
+                if (s.isEmpty() || !(s.getItem() instanceof RodBlockItem other)) {
+                    continue;
+                }
+                if (family == null) {
+                    family = other.isAeUnit();
+                } else if (family != other.isAeUnit()) {
+                    return false;
+                }
+            }
+            return family == null || family == rod.isAeUnit();
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (!isItemValid(slot, stack)) {
+                return stack;
+            }
+            return super.insertItem(slot, stack, simulate);
         }
     };
 
@@ -71,6 +103,7 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         return true;
     }
 
+    /** Σ n_i × C(t_i) in internal FE. */
     public long rodCapacitySum() {
         long sum = 0;
         for (int i = 0; i < ROD_SLOTS; i++) {
@@ -78,7 +111,8 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
             if (s.isEmpty() || !(s.getItem() instanceof RodBlockItem rod)) {
                 continue;
             }
-            long per = rod.isAeUnit() ? rod.getTier().capacityFe / 2 : rod.getTier().capacityFe;
+            // Internal buffer is always FE; AE display divides by 2 later.
+            long per = rod.getTier().capacityFe;
             sum += per * (long) s.getCount();
         }
         return sum;
@@ -97,24 +131,62 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
 
     @Override
     public long getDisplayCapacity() {
-        long recipeCap = isAeDisplay() && recipeEnergy > 0 ? recipeEnergy / 2 : recipeEnergy;
         long rodCap = rodCapacitySum();
-        return Math.max(recipeCap, rodCap);
+        long show = isAeDisplay() ? rodCap / 2 : rodCap;
+        if (show > 0) {
+            return show;
+        }
+        long recipeCap = isAeDisplay() && recipeEnergy > 0 ? recipeEnergy / 2 : recipeEnergy;
+        return Math.max(recipeCap, 0);
     }
 
+    /**
+     * Rod feed fills the rod-defined cache (not only current recipe).
+     * ME orb override stays recipe-only; Advanced is cache-based.
+     */
+    @Override
+    public long fillEnergy(long amount) {
+        if (level == null || amount <= 0 || !rodsPresent()) {
+            return 0;
+        }
+        long cacheMax = rodCapacitySum();
+        if (cacheMax <= 0) {
+            return 0;
+        }
+        long empty = Math.max(0, cacheMax - bufferFe);
+        long filled = Math.min(empty, amount);
+        if (filled > 0) {
+            bufferFe += filled;
+        }
+        if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
+            completeIfPossible();
+        }
+        setChanged();
+        markForUpdate();
+        return filled;
+    }
+
+    /**
+     * Network pull fills the rod cache like AE2 cells / wireless terminals drawing
+     * from the grid — independent of whether a recipe is currently loaded.
+     */
     @Override
     protected void pullFromNetwork(IGridNode node) {
         if (!APConfig.COMMON.orbPullFromNetwork.get() || !rodsPresent() || node == null || !node.isActive()) {
             return;
         }
-        if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
+        long cacheMax = rodCapacitySum();
+        if (cacheMax <= 0) {
             return;
         }
-        long room = recipeEnergy > 0 ? Math.max(0, recipeEnergy - bufferFe) : 0;
-        if (room <= 0 && recipe != null) {
+        long room = Math.max(0, cacheMax - bufferFe);
+        if (room <= 0) {
+            // Cache full — still try to finish a ready recipe.
+            if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
+                completeIfPossible();
+            }
             return;
         }
-        // Input budget: generous but reserved; Advanced is allowed to drain with reserve
         if (rodsAreAe()) {
             IEnergyService energy = node.getGrid().getEnergyService();
             double max = Math.max(1.0, energy.getMaxStoredPower());
@@ -122,8 +194,8 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
             double available = Math.max(0.0, energy.getStoredPower() - reserve);
             double wantAe = Math.min((double) APConfig.COMMON.aeBurstAe.get(), available);
             double wantFe = wantAe * 2.0;
-            if (room > 0) {
-                wantFe = Math.min(wantFe, room);
+            if (wantFe > room) {
+                wantFe = room;
                 wantAe = wantFe / 2.0;
             }
             if (wantAe <= 0) {
@@ -138,9 +210,9 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
             if (storage == null) {
                 return;
             }
-            long want = APConfig.COMMON.meBurstFe.get();
-            if (room > 0) {
-                want = Math.min(want, room);
+            long want = Math.min(APConfig.COMMON.meBurstFe.get(), room);
+            if (want <= 0) {
+                return;
             }
             long got = FluxBridge.extractFe(storage, want);
             if (got > 0) {
@@ -151,7 +223,6 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
             checkRecipe();
         }
         if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
-            fillEnergy(0);
             completeIfPossible();
         }
         setChanged();

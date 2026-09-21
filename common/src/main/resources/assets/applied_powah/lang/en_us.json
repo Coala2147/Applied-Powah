@@ -36,5 +36,9 @@
   "item.applied_powah.me_energizing_rod_nitro": "ME Energizing Rod (Nitro)",
   "item.applied_powah.me_energizing_orb": "ME Energizing Orb",
   "item.applied_powah.advanced_energizing_orb": "Advanced Energizing Orb",
-  "applied_powah.tooltip.progress": "Progress: %s / %s (%s%%)"
+  "applied_powah.tooltip.progress": "Progress: %s / %s (%s%%)",
+  "applied_powah.gui.guide": "Open energizing orb guide",
+  "applied_powah.gui.guide_missing": "Could not open GuideME (AE2/GuideME required)",
+  "applied_powah.gui.auto_export.on": "Auto-export: ON (ME network / adjacent)",
+  "applied_powah.gui.auto_export.off": "Auto-export: OFF"
 }

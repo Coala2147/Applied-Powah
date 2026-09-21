@@ -92,6 +92,7 @@ public final class AppliedPowah {
         } else {
             LOG.error("AE2 not present — nothing will register.");
         }
+        com.coala.appliedpowah.network.APNetwork.register();
     }
 
     private static void onClientSetup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
