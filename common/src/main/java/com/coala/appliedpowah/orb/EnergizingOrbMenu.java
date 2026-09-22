@@ -38,21 +38,29 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         this.orb = orb;
         this.access = ContainerLevelAccess.create(orb.getLevel(), orb.getBlockPos());
         ItemStackHandler inv = orb.getInv();
-        this.addSlot(new SlotItemHandler(inv, 0, 116, 36) {
+        boolean adv = orb instanceof AdvancedEnergizingOrbBlockEntity;
+        // Output slot (centered in 26×26 output area)
+        int outX = adv ? 112 : 123;
+        int outY = 47;
+        this.addSlot(new SlotItemHandler(inv, 0, outX, outY) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return false;
             }
         });
-        int[][] in = {{44, 24}, {62, 24}, {80, 24}, {44, 42}, {62, 42}, {80, 42}};
+        // Input slots (2×3 grid)
+        int[][] in = adv
+                ? new int[][]{{13, 29}, {31, 29}, {31, 47}, {13, 47}, {13, 65}, {31, 65}}
+                : new int[][]{{24, 29}, {42, 29}, {42, 47}, {24, 47}, {24, 65}, {42, 65}};
         for (int i = 0; i < 6; i++) {
             this.addSlot(new SlotItemHandler(inv, 1 + i, in[i][0], in[i][1]));
         }
         int count = 7;
-        if (orb instanceof AdvancedEnergizingOrbBlockEntity adv) {
-            ItemStackHandler rods = adv.getRodInv();
+        if (adv) {
+            AdvancedEnergizingOrbBlockEntity aorb = (AdvancedEnergizingOrbBlockEntity) orb;
+            ItemStackHandler rods = aorb.getRodInv();
             for (int i = 0; i < AdvancedEnergizingOrbBlockEntity.ROD_SLOTS; i++) {
-                this.addSlot(new SlotItemHandler(rods, i, 148, 24 + i * 18) {
+                this.addSlot(new SlotItemHandler(rods, i, 152, 21 + i * 18) {
                     @Override
                     public boolean mayPlace(ItemStack stack) {
                         return stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem
@@ -63,13 +71,14 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             count += AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
         }
         this.orbSlots = count;
+        // Player inventory (imageHeight=199, matching AE2 Spatial IO layout)
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
+                this.addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18, 117 + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            this.addSlot(new Slot(playerInv, col, 8 + col * 18, 142));
+            this.addSlot(new Slot(playerInv, col, 8 + col * 18, 175));
         }
 
         // Live GUI sync — progress bar animates every tick these change

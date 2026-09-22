@@ -25,22 +25,19 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             new ResourceLocation("applied_powah", "textures/gui/me_energizing_orb.png");
     private static final ResourceLocation TEX_ADV =
             new ResourceLocation("applied_powah", "textures/gui/advanced_energizing_orb.png");
-    private static final ResourceLocation TEX_PROG =
-            new ResourceLocation("applied_powah", "textures/gui/progress_bar.png");
-    private static final ResourceLocation TEX_ALERT =
-            new ResourceLocation("applied_powah", "textures/gui/power_alert.png");
 
     private static final int GUI_W = 176;
-    private static final int GUI_H = 166;
+    private static final int GUI_H = 199;
+    private static final int TEX_SIZE = 256;
+
+    // Texture atlas offsets within the 256×256 sheet
+    private static final int TEX_PROG_X = 176;
+    private static final int TEX_ALERT_X = 182;
 
     /** Vertical progress beside output (6×18). */
-    private static final int PROG_X = 132;
-    private static final int PROG_Y = 36;
     private static final int PROG_W = 6;
     private static final int PROG_H = 18;
 
-    private static final int ALERT_X = 117;
-    private static final int ALERT_Y = 68;
     private static final int ALERT_SIZE = 18;
 
     private static final ResourceLocation GUIDE_PAGE =
@@ -88,14 +85,31 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         return mx >= x && mx < x + BTN && my >= y && my < y + BTN;
     }
 
+    // Layout helpers — ME vs Advanced differ per latest JSON specs
+    private int progX() {
+        return menu.isAdvanced() ? 135 : 146;
+    }
+
+    private int progY() {
+        return 47;
+    }
+
+    private int alertX() {
+        return menu.isAdvanced() ? 112 : 123;
+    }
+
+    private int alertY() {
+        return 47;
+    }
+
     private boolean hoverProgress(int mx, int my) {
-        return mx >= leftPos + PROG_X - 2 && mx < leftPos + PROG_X + PROG_W + 2
-                && my >= topPos + PROG_Y && my < topPos + PROG_Y + PROG_H;
+        return mx >= leftPos + progX() - 2 && mx < leftPos + progX() + PROG_W + 2
+                && my >= topPos + progY() && my < topPos + progY() + PROG_H;
     }
 
     private boolean hoverAlert(int mx, int my) {
-        return mx >= leftPos + ALERT_X && mx < leftPos + ALERT_X + ALERT_SIZE
-                && my >= topPos + ALERT_Y && my < topPos + ALERT_Y + ALERT_SIZE;
+        return mx >= leftPos + alertX() && mx < leftPos + alertX() + ALERT_SIZE
+                && my >= topPos + alertY() && my < topPos + alertY() + ALERT_SIZE;
     }
 
     private void openGuide() {
@@ -118,40 +132,43 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         int x = leftPos;
         int y = topPos;
         boolean adv = menu.isAdvanced();
+        ResourceLocation tex = adv ? TEX_ADV : TEX_ME;
+        int px = progX();
+        int py = progY();
+        int ax = alertX();
+        int ay = alertY();
 
-        // 1) empty-shell background
-        g.blit(adv ? TEX_ADV : TEX_ME, x, y, 0, 0, GUI_W, GUI_H);
+        // 1) empty-shell background (176×199 from the 256×256 sheet)
+        g.blit(tex, x, y, 0, 0, GUI_W, GUI_H, TEX_SIZE, TEX_SIZE);
 
-        // 2) progress track (empty) + fill from DataSlot values — bar moves as energy fills
+        // 2) progress fill from DataSlot values — bar moves as energy fills
         long prog = menu.getGuiProgress();
         long max = menu.getGuiRecipeEnergy();
-        // dark track so the fill is always visible against the shell
-        g.fill(x + PROG_X, y + PROG_Y, x + PROG_X + PROG_W, y + PROG_Y + PROG_H, 0xFF373737);
         if (max > 0) {
             int fillH = (int) ((prog * (long) PROG_H) / max);
             if (fillH > PROG_H) {
                 fillH = PROG_H;
             }
             if (fillH > 0) {
-                // fill from bottom (VERTICAL ProgressBar): bottom-up green bar
-                int top = y + PROG_Y + (PROG_H - fillH);
+                // fill from bottom (VERTICAL): bottom-up bar
+                int top = y + py + (PROG_H - fillH);
                 int srcY = PROG_H - fillH;
                 try {
-                    g.blit(TEX_PROG, x + PROG_X, top, 0, srcY, PROG_W, fillH, PROG_W, PROG_H);
+                    g.blit(tex, x + px, top, TEX_PROG_X, srcY, PROG_W, fillH, TEX_SIZE, TEX_SIZE);
                 } catch (Throwable t) {
-                    g.fill(x + PROG_X, top, x + PROG_X + PROG_W, y + PROG_Y + PROG_H, 0xFF00C853);
+                    g.fill(x + px, top, x + px + PROG_W, y + py + PROG_H, 0xFF00C853);
                 }
             }
         }
 
-        // 3) power alert (DataSlot)
+        // 3) power alert overlaid on output slot (DataSlot)
         if (menu.getGuiShowWarning()) {
             try {
-                g.blit(TEX_ALERT, x + ALERT_X, y + ALERT_Y, 0, 0, ALERT_SIZE, ALERT_SIZE,
-                        ALERT_SIZE, ALERT_SIZE);
+                g.blit(tex, x + ax, y + ay, TEX_ALERT_X, 0, ALERT_SIZE, ALERT_SIZE,
+                        TEX_SIZE, TEX_SIZE);
             } catch (Throwable t) {
-                g.fill(x + ALERT_X + 2, y + ALERT_Y + 2,
-                        x + ALERT_X + ALERT_SIZE - 2, y + ALERT_Y + ALERT_SIZE - 2, 0xFFE65100);
+                g.fill(x + ax + 2, y + ay + 2,
+                        x + ax + ALERT_SIZE - 2, y + ay + ALERT_SIZE - 2, 0xFFE65100);
             }
         }
 
@@ -207,7 +224,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         long max = menu.getGuiRecipeEnergy();
         if (max > 0) {
             g.drawString(font, fmt(prog) + "/" + fmt(max),
-                    leftPos + PROG_X - 36, topPos + PROG_Y + PROG_H + 2, 0xFF373737, false);
+                    leftPos + progX() - 36, topPos + progY() + PROG_H + 2, 0xFF373737, false);
         }
         if (menu.isAdvanced() && menu.getGuiCapacity() > 0) {
             g.drawString(font,

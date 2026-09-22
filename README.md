@@ -17,15 +17,17 @@ In-game documentation is merged into the **AE2 GuideME** book (`assets/applied_p
 
 | Component | Description |
 |-----------|-------------|
-| Super / Extreme Dense Energy Cell | 12.8M / 102.4M AE; crafted from 8× previous cell + calculation processor |
-| AE Energizing Rod ×7 tiers | Full block; extracts **AE** from the ME network; feeds a nearby Powah Energizing Orb |
-| ME Energizing Rod ×7 tiers | Full block; extracts **FE** (Applied Flux) from the ME network; feeds an Energizing Orb |
-| Recipes | AE cross / ME corners + same-tier Powah rod; tier upgrades follow Powah patterns; AE↔ME shapeless; gated by mod presence |
-| Placement | Requires an adjacent AE2 cable; `facing` targets the cable (aimed cable → single cable → south/east) |
+| Super / Extreme Dense Energy Cell | 12.8M / 102.4M AE; crafted from 8× previous cell + calculation processor; keeps NBT when mined |
+| AE Energizing Rod ×7 tiers | Full block; extracts **AE** from the ME network; feeds nearby Energizing Orbs |
+| ME Energizing Rod ×7 tiers | Full block; extracts **FE** (Applied Flux) from the ME network; feeds nearby Energizing Orbs |
+| ME Energizing Orb | GUI machine; runs Powah energizing recipes; accepts rod energy; optional auto-export to ME/adjacent inventories |
+| Advanced Energizing Orb | ME Orb + 4 rod slots (up to 16 rods each); internal energy cache; network pull + rod feed dual charging |
+| Recipes | AE cross / ME corners + same-tier Powah rod; tier upgrades follow Powah patterns; AE↔ME shapeless; orb recipes gated by mod presence |
+| Placement | Rods require an adjacent AE2 cable; `facing` targets the cable; orbs connect on BOTTOM only |
 | Collision | Thin rod shape (Powah-like), not a full cube |
-| Beam | Visual beam while transferring energy to an orb (borrowed textures until 1.0) |
+| Beam | Visual beam while rods transfer energy to an orb |
 
-Item tooltips follow AE2 wording and light-gray styling (`Stored Energy: … AE (…%)`). Rod items do not fabricate live stored energy. Behaviour details are in the GuideME book (`assets/applied_powah/applied_powah_guide/`).
+Item tooltips follow AE2 wording and light-gray styling (`Stored Energy: … AE (…%)`). Rod items do not fabricate live stored energy. Behaviour details are in the GuideME book (`assets/applied_powah/ae2guide/`).
 
 ## Dependencies
 
