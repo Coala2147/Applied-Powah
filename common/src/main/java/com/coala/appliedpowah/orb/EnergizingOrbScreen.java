@@ -180,7 +180,11 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         if (menu.isAuto()) {
             g.fill(patternX() - 1, patternY() - 1, patternX() + BTN + 1, patternY() + BTN + 1, 0xFF373737);
             g.fill(patternX(), patternY(), patternX() + BTN, patternY() + BTN, 0xFF8B8B8B);
-            g.drawString(font, "样板", patternX() + 1, patternY() + 4, 0xFFFFFFFF, false);
+            try {
+                Icon.BACKGROUND_ENCODED_PATTERN.getBlitter().dest(patternX(), patternY()).blit(g);
+            } catch (Throwable t) {
+                g.drawString(font, "P", patternX() + 5, patternY() + 4, 0xFFFFFFFF, false);
+            }
         }
     }
 

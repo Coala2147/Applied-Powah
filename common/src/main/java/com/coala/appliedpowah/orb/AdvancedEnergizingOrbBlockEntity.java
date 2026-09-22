@@ -26,7 +26,8 @@ import net.minecraftforge.items.ItemStackHandler;
  *   <li>Grid: BOTTOM only (matches tested ground cable).</li>
  * </ul>
  */
-public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity {
+public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
+        implements net.minecraftforge.energy.IEnergyStorage {
 
     public static final int ROD_SLOTS = 4;
     public static final int MAX_RODS_PER_SLOT = 16;
@@ -154,6 +155,65 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         return BASE_CACHE_FE + rodCapacitySum();
     }
 
+    /** Overflow drain bookkeeping (rod pull-out leaves FE above cache cap). */
+    private int overflowTick;
+
+    /**
+     * When rods are removed, leftover FE may exceed the new cache cap.
+     * 1) Try to push the excess back into the AE network.
+     * 2) Otherwise every 20t shed 5% of current FE (min 5% of BASE_CACHE_FE)
+     *    until bufferFe ≤ BASE_CACHE_FE; the final step sheds exactly the excess.
+     */
+    private void handleOverflow(IGridNode node) {
+        long cap = cacheMaxFe();
+        if (bufferFe <= cap) {
+            overflowTick = 0;
+            return;
+        }
+        long excess = bufferFe - cap;
+        // 1) push excess back to AE network
+        if (node != null && node.isActive()) {
+            try {
+                IEnergyService energy = node.getGrid().getEnergyService();
+                double max = Math.max(1.0, energy.getMaxStoredPower());
+                double roomAe = max - energy.getStoredPower();
+                double wantAe = Math.min((double) excess / 2.0, roomAe);
+                if (wantAe > 0) {
+                    double accepted = energy.injectPower(wantAe, Actionable.MODULATE);
+                    if (accepted > 0) {
+                        bufferFe -= Math.round(accepted * 2.0);
+                        setChanged();
+                        markForUpdate();
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        if (bufferFe <= cap) {
+            overflowTick = 0;
+            return;
+        }
+        // 2) periodic dissipation
+        overflowTick++;
+        if (overflowTick < 20) {
+            return;
+        }
+        overflowTick = 0;
+        long over = bufferFe - BASE_CACHE_FE;
+        if (over <= 0) {
+            // between BASE and cap (rods still present) — drain down to cap only
+            over = bufferFe - cap;
+        }
+        long minShed = Math.max(1L, BASE_CACHE_FE / 20); // 5% of default cache
+        long shed = Math.max(minShed, bufferFe / 20);    // 5% of current
+        if (shed >= over) {
+            shed = over; // exact step to the target
+        }
+        bufferFe = Math.max(0L, bufferFe - shed);
+        setChanged();
+        markForUpdate();
+    }
+
     @Override
     public long fillEnergy(long amount) {
         if (level == null || amount <= 0 || completing) {
@@ -180,10 +240,15 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
      */
     @Override
     protected void pullFromNetwork(IGridNode node) {
+        // Always handle rod-pull-out overflow first (works even if pull is disabled).
+        handleOverflow(node);
         if (!APConfig.COMMON.orbPullFromNetwork.get() || node == null || !node.isActive()) {
             return;
         }
         long cacheMax = cacheMaxFe();
+        if (bufferFe > cacheMax) {
+            return;
+        }
         long room = Math.max(0, cacheMax - bufferFe);
         if (room <= 0) {
             if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
@@ -253,6 +318,7 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         updateWarning();
         setChanged();
         markForUpdate();
+        pushEnergyOut(node);
     }
 
     @Override
@@ -267,5 +333,91 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         if (tag.contains("rodInv")) {
             rodInv.deserializeNBT(tag.getCompound("rodInv"));
         }
+    }
+
+    // ---- FE output like an energy cell: at most 1% of cache cap per tick ----
+
+    /** Max FE this orb may push/extract per tick = 1% of current cache cap. */
+    public long maxOutputPerTick() {
+        return Math.max(1L, cacheMaxFe() / 100);
+    }
+
+    private long extractedThisTick;
+
+    @Override
+    public int receiveEnergy(int maxReceive, boolean simulate) {
+        return 0; // input goes through fillEnergy / network pull
+    }
+
+    @Override
+    public int extractEnergy(int maxExtract, boolean simulate) {
+        long budget = Math.min(maxOutputPerTick() - extractedThisTick, bufferFe);
+        budget = Math.min(budget, maxExtract);
+        if (budget <= 0) {
+            return 0;
+        }
+        if (!simulate) {
+            bufferFe -= budget;
+            extractedThisTick += budget;
+            setChanged();
+            markForUpdate();
+        }
+        return (int) Math.min(Integer.MAX_VALUE, budget);
+    }
+
+    @Override
+    public int getEnergyStored() {
+        return (int) Math.min(Integer.MAX_VALUE, bufferFe);
+    }
+
+    @Override
+    public int getMaxEnergyStored() {
+        return (int) Math.min(Integer.MAX_VALUE, cacheMaxFe());
+    }
+
+    @Override
+    public boolean canExtract() {
+        return true;
+    }
+
+    @Override
+    public boolean canReceive() {
+        return false;
+    }
+
+    /** Reset the per-tick output budget and push up to 1% into AE network. */
+    private void pushEnergyOut(IGridNode node) {
+        extractedThisTick = 0;
+        if (node == null || !node.isActive() || bufferFe <= 0) {
+            return;
+        }
+        long budget = Math.min(maxOutputPerTick(), bufferFe);
+        try {
+            IEnergyService energy = node.getGrid().getEnergyService();
+            double max = Math.max(1.0, energy.getMaxStoredPower());
+            double roomAe = max - energy.getStoredPower();
+            double wantAe = Math.min((double) budget / 2.0, roomAe);
+            if (wantAe <= 0) {
+                return;
+            }
+            double got = energy.injectPower(wantAe, Actionable.MODULATE);
+            if (got > 0) {
+                bufferFe -= Math.round(got * 2.0);
+                setChanged();
+                markForUpdate();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @org.jetbrains.annotations.NotNull
+    @Override
+    public <T> net.minecraftforge.common.util.LazyOptional<T> getCapability(
+            @org.jetbrains.annotations.NotNull net.minecraftforge.common.capabilities.Capability<T> cap,
+            @org.jetbrains.annotations.Nullable net.minecraft.core.Direction side) {
+        if (cap == net.minecraftforge.common.capabilities.ForgeCapabilities.ENERGY) {
+            return net.minecraftforge.common.util.LazyOptional.of(() -> this).cast();
+        }
+        return super.getCapability(cap, side);
     }
 }

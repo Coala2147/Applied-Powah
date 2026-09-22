@@ -2,6 +2,9 @@ package com.coala.appliedpowah.orb;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.ticking.IGridTickable;
+import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
@@ -39,6 +42,11 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
     public AutoEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
+        // PatternProviderLogic ctor overwrites IGridTickable + sets REQUIRE_CHANNEL.
+        // Reclaim the tick slot so the parent orb logic (pull / craft / export) still runs,
+        // and drop the channel requirement (orb is a plain ME device).
+        getMainNode().setFlags();
+        getMainNode().addService(IGridTickable.class, this);
     }
 
     @Override
@@ -134,7 +142,37 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     }
 
     @Override
+    public TickingRequest getTickingRequest(IGridNode node) {
+        return new TickingRequest(1, 20, false, false);
+    }
+
+    @Override
+    public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        var mod = super.tickingRequest(node, ticksSinceLastCall);
+        // Pattern-provider return inventory → network (crafting CPU pickup).
+        try {
+            var ret = logic.getReturnInv();
+            if (ret != null && !ret.isEmpty() && node != null && node.isActive()) {
+                var storage = node.getGrid().getStorageService();
+                if (storage != null) {
+                    ret.injectIntoNetwork(storage.getInventory(),
+                            new appeng.me.helpers.MachineSource(this),
+                            s -> { });
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return mod;
+    }
+
+    @Override
     public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+        // Never expose fluid/energy from the pattern-provider generic inv —
+        // Jade otherwise draws a bogus 36 000 mB tank on the orb.
+        if (cap == net.minecraftforge.common.capabilities.ForgeCapabilities.FLUID_HANDLER
+                || cap == net.minecraftforge.common.capabilities.ForgeCapabilities.ENERGY) {
+            return super.getCapability(cap, side);
+        }
         var lo = logic.getCapability(cap);
         if (lo.isPresent()) {
             return lo;

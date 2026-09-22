@@ -46,9 +46,9 @@ public class RodBlockItem extends BlockItem {
         long transfer = aeUnit ? tier.transferFe / 2 : tier.transferFe;
         lines.add(Component.translatable("applied_powah.tooltip.rod.buffer",
                         TooltipStyle.formatAmount(capacity), unit)
-                .withStyle(ChatFormatting.GRAY));
+                .withStyle(ChatFormatting.DARK_GRAY));
         lines.add(Component.translatable("applied_powah.tooltip.rod.transfer",
                         TooltipStyle.formatAmount(transfer), unit)
-                .withStyle(ChatFormatting.GRAY));
+                .withStyle(ChatFormatting.DARK_GRAY));
     }
 }
