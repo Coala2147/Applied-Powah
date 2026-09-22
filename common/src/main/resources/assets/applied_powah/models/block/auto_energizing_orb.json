@@ -2,9 +2,9 @@
   "credit": "Made by owmii using Blockbench",
   "parent": "block/block",
   "textures": {
-    "0": "applied_powah:block/me_energizing_orb",
-    "1": "applied_powah:block/me_energizing_orb_base",
-    "particle": "applied_powah:block/me_energizing_orb"
+    "0": "applied_powah:block/auto_energizing_orb",
+    "1": "applied_powah:block/auto_energizing_orb_base",
+    "particle": "applied_powah:block/auto_energizing_orb"
   },
   "elements": [
     {

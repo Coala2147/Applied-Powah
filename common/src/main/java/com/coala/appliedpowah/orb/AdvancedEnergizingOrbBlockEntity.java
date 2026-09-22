@@ -20,8 +20,8 @@ import net.minecraftforge.items.ItemStackHandler;
  * Advanced Energizing Orb.
  * <ul>
  *   <li>4 rod slots × ≤16 AP rods; same AE/ME family; mixed tiers OK.</li>
- *   <li>Internal energy cache = Σ n×C(t) — like AE2 energy cells / portable terminals:
- *       network pull fills the cache; Jade reads {@link #getAECurrentPower()}.</li>
+ *   <li>Built-in cache = Extreme Dense Energy Cell equivalent (FE), works with zero rods.</li>
+ *   <li>Rod capacities stack on top of the built-in cache.</li>
  *   <li>Rod items never enter craft input slots.</li>
  *   <li>Grid: BOTTOM only (matches tested ground cable).</li>
  * </ul>
@@ -30,6 +30,9 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
 
     public static final int ROD_SLOTS = 4;
     public static final int MAX_RODS_PER_SLOT = 16;
+    /** ExtremeDenseEnergyCellBlock.MAX_POWER (AE) × 2 = FE. Always present, no rods needed. */
+    public static final long BASE_CACHE_FE =
+            (long) com.coala.appliedpowah.energycell.ExtremeDenseEnergyCellBlock.MAX_POWER * 2L;
 
     private final ItemStackHandler rodInv = new ItemStackHandler(ROD_SLOTS) {
         @Override
@@ -99,10 +102,11 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
                 return rod.isAeUnit();
             }
         }
-        return true;
+        // No rods → built-in cache is FE (user spec).
+        return false;
     }
 
-    /** Σ n_i × C(t_i) in internal FE. */
+    /** Σ n_i × C(t_i) in internal FE (rod part only). */
     public long rodCapacitySum() {
         long sum = 0;
         for (int i = 0; i < ROD_SLOTS; i++) {
@@ -122,28 +126,23 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
 
     @Override
     public long getDisplayEnergy() {
-        // Cache is the real stored energy (AE family displays FE/2).
         return isAeDisplay() ? bufferFe / 2 : bufferFe;
     }
 
     @Override
     public long getDisplayCapacity() {
-        long rodCap = rodCapacitySum();
-        if (rodCap > 0) {
-            return isAeDisplay() ? rodCap / 2 : rodCap;
-        }
-        return recipeEnergy > 0 ? (isAeDisplay() ? recipeEnergy / 2 : recipeEnergy) : 0;
+        long totalFe = BASE_CACHE_FE + rodCapacitySum();
+        return isAeDisplay() ? totalFe / 2 : totalFe;
     }
 
-    /** Jade / AE2: report the rod cache like an energy cell. */
     @Override
     public double getAECurrentPower() {
-        return getDisplayEnergy();
+        return isAeDisplay() ? bufferFe / 2.0 : bufferFe / 2.0;
     }
 
     @Override
     public double getAEMaxPower() {
-        return getDisplayCapacity();
+        return (BASE_CACHE_FE + rodCapacitySum()) / 2.0;
     }
 
     @Override
@@ -151,15 +150,16 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
         return AccessRestriction.NO_ACCESS;
     }
 
+    private long cacheMaxFe() {
+        return BASE_CACHE_FE + rodCapacitySum();
+    }
+
     @Override
     public long fillEnergy(long amount) {
-        if (level == null || amount <= 0 || !rodsPresent() || completing) {
+        if (level == null || amount <= 0 || completing) {
             return 0;
         }
-        long cacheMax = rodCapacitySum();
-        if (cacheMax <= 0) {
-            return 0;
-        }
+        long cacheMax = cacheMaxFe();
         long empty = Math.max(0, cacheMax - bufferFe);
         long filled = Math.min(empty, amount);
         if (filled > 0) {
@@ -175,18 +175,15 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
     }
 
     /**
-     * Network pull fills the rod cache (energy-cell / portable-terminal style).
-     * Ground cable on DOWN is enough — node must be active.
+     * Network pull fills the built-in + rod cache (energy-cell style).
+     * Works with or without rods. Ground cable on DOWN is enough.
      */
     @Override
     protected void pullFromNetwork(IGridNode node) {
-        if (!APConfig.COMMON.orbPullFromNetwork.get() || !rodsPresent() || node == null || !node.isActive()) {
+        if (!APConfig.COMMON.orbPullFromNetwork.get() || node == null || !node.isActive()) {
             return;
         }
-        long cacheMax = rodCapacitySum();
-        if (cacheMax <= 0) {
-            return;
-        }
+        long cacheMax = cacheMaxFe();
         long room = Math.max(0, cacheMax - bufferFe);
         if (room <= 0) {
             if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
@@ -224,6 +221,27 @@ public class AdvancedEnergizingOrbBlockEntity extends MeEnergizingOrbBlockEntity
             long got = FluxBridge.extractFe(storage, want);
             if (got > 0) {
                 bufferFe += got;
+            }
+        } else if (rodsPresent() && rodsAreAe()) {
+            // AE rods but appflux path not taken — already handled above.
+        } else {
+            // No rods and FE family: still pull AE from grid as FE (1 AE = 2 FE).
+            IEnergyService energy = node.getGrid().getEnergyService();
+            double max = Math.max(1.0, energy.getMaxStoredPower());
+            double reserve = max * APConfig.COMMON.networkReserveRatio.get();
+            double available = Math.max(0.0, energy.getStoredPower() - reserve);
+            double wantAe = Math.min((double) APConfig.COMMON.aeBurstAe.get(), available);
+            double wantFe = wantAe * 2.0;
+            if (wantFe > room) {
+                wantFe = room;
+                wantAe = wantFe / 2.0;
+            }
+            if (wantAe <= 0) {
+                return;
+            }
+            double got = energy.extractAEPower(wantAe, Actionable.MODULATE, PowerMultiplier.ONE);
+            if (got > 0) {
+                bufferFe += Math.round(got * 2.0);
             }
         }
         if (recipe == null && !completing) {

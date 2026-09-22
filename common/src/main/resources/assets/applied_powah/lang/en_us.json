@@ -46,5 +46,8 @@
   "applied_powah.gui.auto_export.on": "Auto-export: ON (ME network / adjacent)",
   "applied_powah.gui.auto_export.off": "Auto-export: OFF",
   "applied_powah.gui.power_warning": "Insufficient power",
-  "applied_powah.gui.power_warning_details": "Recipe ready but energy cache empty — check rods or ME network pull"
+  "applied_powah.gui.power_warning_details": "Recipe ready but energy cache empty — check rods or ME network pull",
+  "block.applied_powah.auto_energizing_orb": "Auto Energizing Orb",
+  "item.applied_powah.auto_energizing_orb": "Auto Energizing Orb",
+  "applied_powah.gui.patterns": "Patterns"
 }

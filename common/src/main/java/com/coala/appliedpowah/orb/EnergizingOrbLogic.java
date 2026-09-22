@@ -23,15 +23,14 @@ public final class EnergizingOrbLogic {
     }
 
     /**
-     * 输入槽：自身为空即可放入。
-     * 输出槽有产物时**不**挡投料（与错误的 Powah 抄法不同）。
-     * 配方匹配忽略 slot0；一次完成只按配方 result 入槽，输出槽可多次叠堆至上限。
+     * Input slot: empty slot + non-rod. Output slot is independent (AE2 machine
+     * semantics) — having a result in slot 0 does not block new inputs.
+     * Rods never enter craft input slots.
      */
     public static boolean canInsertInput(ItemStackHandler inv, int index, ItemStack stack) {
         if (index == OUTPUT || index >= inv.getSlots() || stack.isEmpty()) {
             return false;
         }
-        // Rods go only in Advanced orb rod slots — never craft inputs.
         if (stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem) {
             return false;
         }
@@ -44,18 +43,34 @@ public final class EnergizingOrbLogic {
             return null;
         }
         try {
+            // Count filled input slots first — Powah requires exact ingredient cardinality.
+            int filled = 0;
+            for (int i = 1; i < SLOTS && i < inv.getSlots(); i++) {
+                if (!inv.getStackInSlot(i).isEmpty()) {
+                    filled++;
+                }
+            }
+            if (filled == 0) {
+                return null;
+            }
             owmii.powah.lib.logistics.inventory.ItemStackHandler powahInv =
                     new owmii.powah.lib.logistics.inventory.ItemStackHandler(SLOTS);
             for (int i = 0; i < SLOTS && i < inv.getSlots(); i++) {
                 if (i == OUTPUT) {
                     powahInv.setStackInSlot(i, ItemStack.EMPTY);
                 } else {
-                    powahInv.setStackInSlot(i, inv.getStackInSlot(i));
+                    ItemStack src = inv.getStackInSlot(i);
+                    powahInv.setStackInSlot(i, src.isEmpty() ? ItemStack.EMPTY : src.copy());
                 }
             }
             Optional<EnergizingRecipe> recipe = level.getRecipeManager()
                     .getRecipeFor(Recipes.ENERGIZING.get(), new RecipeWrapper(powahInv), level);
-            return recipe.orElse(null);
+            EnergizingRecipe found = recipe.orElse(null);
+            if (found != null && found.getIngredients().size() != filled) {
+                // Extra or missing input slots — refuse (6×diamond must not match 1-ingredient).
+                return null;
+            }
+            return found;
         } catch (Throwable t) {
             return null;
         }

@@ -52,14 +52,14 @@ public class EnergizingRodRenderer implements BlockEntityRenderer<EnergizingRodB
             return;
         }
 
-        // Beam is ONLY visible when the player holds a Powah wrench in LINK mode.
+        // Beam ONLY when holding a Powah-style wrench in LINK mode (Powah EnergizingRodRenderer parity).
         boolean show = false;
         var mc = Minecraft.getInstance();
         var player = mc.player;
         if (player != null) {
             for (var hand : InteractionHand.values()) {
                 var stack = player.getItemInHand(hand);
-                if (isPowahWrenchLink(stack)) {
+                if (isWrenchLinkMode(stack)) {
                     show = true;
                     break;
                 }
@@ -166,9 +166,16 @@ public class EnergizingRodRenderer implements BlockEntityRenderer<EnergizingRodB
         LightmapAccess() { super("access", DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, 0, false, false, () -> {}, () -> {}); }
     }
 
-    private static boolean isPowahWrenchLink(ItemStack stack) {
+    private static boolean isWrenchLinkMode(ItemStack stack) {
         if (stack.isEmpty()) {
             return false;
+        }
+        // Prefer Powah IWrench so mode checks match the real wrench state machine.
+        try {
+            if (stack.getItem() instanceof owmii.powah.api.wrench.IWrench wrench) {
+                return wrench.getWrenchMode(stack).link();
+            }
+        } catch (Throwable ignored) {
         }
         var tag = stack.getTagElement("PowahWrenchNBT");
         return tag != null && tag.getInt("WrenchMode") == 1;

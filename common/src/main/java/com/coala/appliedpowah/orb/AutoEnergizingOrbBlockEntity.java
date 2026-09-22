@@ -26,8 +26,6 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-
 /**
  * Auto Energizing Orb.
  * Advanced orb + 36 pattern slots (4x9) acting as a Pattern Provider.
@@ -53,6 +51,17 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     public void onReady() {
         super.onReady();
         this.logic.updatePatterns();
+    }
+
+    @Override
+    public net.minecraft.world.level.block.entity.BlockEntity getBlockEntity() {
+        return this;
+    }
+
+    @Override
+    public void saveChanges() {
+        setChanged();
+        markForUpdate();
     }
 
     @Override
@@ -142,60 +151,85 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
         return AccessRestriction.NO_ACCESS;
     }
 
+    @Override
+    protected void completeIfPossible() {
+        super.completeIfPossible();
+        // After a craft, hand the result to the pattern-provider return inventory
+        // so the crafting CPU gets its item back even if auto-export is off.
+        try {
+            ItemStack out = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
+            if (out.isEmpty()) {
+                return;
+            }
+            var ret = logic.getReturnInv();
+            if (ret == null) {
+                return;
+            }
+            AEItemKey key = AEItemKey.of(out);
+            if (key == null) {
+                return;
+            }
+            long before = out.getCount();
+            long inserted = ret.insert(key, before, appeng.api.config.Actionable.MODULATE,
+                    new appeng.me.helpers.MachineSource(this));
+            if (inserted > 0) {
+                inv.extractItem(EnergizingOrbLogic.OUTPUT, (int) inserted, false);
+                setChanged();
+                markForUpdate();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     /**
      * Accept pattern inputs directly into the orb's input slots (slots 1-6).
-     * Each slot can hold at most 1 item.
+     * Each slot holds 1 item. Multi-count entries are split across empty slots
+     * so a 2×diamond pattern fills two slots — matches Powah energizing layout.
      */
     public boolean acceptPatternInputs(KeyCounter[] inputHolder) {
         if (inputHolder == null || inputHolder.length == 0) {
             return false;
         }
 
-        // Collect all required item inputs
-        List<Object2LongMap.Entry<AEKey>> inputs = new ArrayList<>();
+        // Flatten to (item, count) list — one entry per single item.
+        List<net.minecraft.world.item.ItemStack> singles = new ArrayList<>();
         for (KeyCounter counter : inputHolder) {
             if (counter == null || counter.isEmpty()) {
                 continue;
             }
             for (var entry : counter) {
-                inputs.add(entry);
+                AEKey key = entry.getKey();
+                long amount = entry.getLongValue();
+                if (!(key instanceof AEItemKey itemKey) || amount <= 0) {
+                    return false;
+                }
+                for (long n = 0; n < amount; n++) {
+                    singles.add(itemKey.toStack(1));
+                }
             }
         }
-
-        if (inputs.isEmpty()) {
+        if (singles.isEmpty()) {
             return false;
         }
 
-        // Check that we have enough empty input slots
+        // Need one empty input slot per single item.
         int emptySlots = 0;
         for (int i = 1; i < inv.getSlots() && i < EnergizingOrbLogic.SLOTS; i++) {
             if (inv.getStackInSlot(i).isEmpty()) {
                 emptySlots++;
             }
         }
-        if (emptySlots < inputs.size()) {
+        if (emptySlots < singles.size()) {
             return false;
         }
 
-        // Insert items into empty input slots
-        int slot = 1;
-        for (var entry : inputs) {
-            AEKey key = entry.getKey();
-            long amount = entry.getLongValue();
-            if (!(key instanceof AEItemKey itemKey) || amount <= 0) {
-                continue;
-            }
-            while (slot < inv.getSlots() && slot < EnergizingOrbLogic.SLOTS) {
-                if (inv.getStackInSlot(slot).isEmpty()) {
-                    ItemStack stack = itemKey.toStack((int) Math.min(amount, Integer.MAX_VALUE));
-                    inv.setStackInSlot(slot, stack);
-                    slot++;
-                    break;
-                }
-                slot++;
+        int idx = 0;
+        for (int slot = 1; slot < inv.getSlots() && slot < EnergizingOrbLogic.SLOTS && idx < singles.size(); slot++) {
+            if (inv.getStackInSlot(slot).isEmpty()) {
+                inv.setStackInSlot(slot, singles.get(idx));
+                idx++;
             }
         }
-
-        return true;
+        return idx == singles.size();
     }
 }

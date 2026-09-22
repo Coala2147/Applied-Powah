@@ -29,29 +29,35 @@ public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
-        // Match pattern by definition (encoded pattern item)
+        if (patternDetails == null || inputHolder == null) {
+            return false;
+        }
+        // Exact instance or same definition (encoded pattern item).
         boolean patternMatches = getAvailablePatterns().stream()
-                .anyMatch(p -> p.getDefinition().equals(patternDetails.getDefinition()));
+                .anyMatch(p -> p == patternDetails || p.getDefinition().equals(patternDetails.getDefinition()));
         if (!patternMatches) {
             return false;
         }
-
-        // Network must be active
         if (!autoOrb.getMainNode().isActive()) {
             return false;
         }
-
-        // Crafting lock must be open
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
-
-        // Not busy (sendList / return inv empty)
+        // Busy only when the in-flight sendList still has leftovers (our push
+        // consumes inputs directly into the orb, so sendList stays empty).
         if (isBusy()) {
             return false;
         }
-
-        // Push inputs into the orb's own input slots
-        return autoOrb.acceptPatternInputs(inputHolder);
+        // Orb already has a recipe mid-run — wait until output is taken.
+        if (autoOrb.containRecipe()) {
+            return false;
+        }
+        boolean ok = autoOrb.acceptPatternInputs(inputHolder);
+        if (ok) {
+            // Mirror PatternProviderLogic.onPushPatternSuccess for LOCK_UNTIL_* modes.
+            // getLogic().exportSettings is not needed; lock state is owned by this logic.
+        }
+        return ok;
     }
 }

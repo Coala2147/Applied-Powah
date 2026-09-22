@@ -47,5 +47,5 @@
   "applied_powah.gui.guide_missing": "未能打开 GuideME，请确认已安装 AE2/GuideME",
   "applied_powah.gui.auto_export.on": "自动输出: 开（汇入 ME 网络/相邻容器）",
   "applied_powah.gui.auto_export.off": "自动输出: 关",
-  "applied_powah.gui.patterns": "管理样板"
+  "applied_powah.gui.patterns": "样板"
 }

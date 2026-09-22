@@ -253,10 +253,26 @@ public class EnergizingRodBlock extends AEBaseEntityBlock<EnergizingRodBlockEnti
                 return InteractionResult.SUCCESS;
             }
             CompoundTag nbt = getWrenchNBT(held);
-            // Always store RodPos (overwriting any previous state) — consistent with Powah WrenchItem behaviour.
-            nbt.remove("OrbPos");
-            nbt.put("RodPos", NbtUtils.writeBlockPos(pos));
-            player.displayClientMessage(Component.translatable("chat.powah.wrench.link.start").withStyle(ChatFormatting.YELLOW), true);
+            // Match Powah WrenchItem/rod onWrench exactly: complete from OrbPos, else start RodPos.
+            if (nbt.contains("OrbPos", Tag.TAG_COMPOUND)) {
+                BlockPos orbPos = NbtUtils.readBlockPos(nbt.getCompound("OrbPos"));
+                BlockEntity orbBe = level.getBlockEntity(orbPos);
+                if (orbBe instanceof com.coala.appliedpowah.orb.EnergyAcceptingOrb
+                        || (net.minecraftforge.fml.ModList.get().isLoaded("powah")
+                                && orbBe instanceof owmii.powah.block.energizing.EnergizingOrbTile)) {
+                    int range = getPowahRange();
+                    if ((int) Math.sqrt(pos.distSqr(orbPos)) <= range) {
+                        rod.setOrbPos(orbPos);
+                        player.displayClientMessage(Component.translatable("chat.powah.wrench.link.done").withStyle(ChatFormatting.GOLD), true);
+                    } else {
+                        player.displayClientMessage(Component.translatable("chat.powah.wrench.link.fail").withStyle(ChatFormatting.RED), true);
+                    }
+                }
+                nbt.remove("OrbPos");
+            } else {
+                nbt.put("RodPos", NbtUtils.writeBlockPos(pos));
+                player.displayClientMessage(Component.translatable("chat.powah.wrench.link.start").withStyle(ChatFormatting.YELLOW), true);
+            }
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;

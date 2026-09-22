@@ -26,6 +26,8 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             new ResourceLocation("applied_powah", "textures/gui/me_energizing_orb.png");
     private static final ResourceLocation TEX_ADV =
             new ResourceLocation("applied_powah", "textures/gui/advanced_energizing_orb.png");
+    private static final ResourceLocation TEX_AUTO =
+            new ResourceLocation("applied_powah", "textures/gui/auto_energizing_orb.png");
 
     private static final int GUI_W = 176;
     private static final int GUI_H = 199;
@@ -127,7 +129,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         int x = leftPos;
         int y = topPos;
         boolean adv = menu.isAdvanced();
-        ResourceLocation tex = adv ? TEX_ADV : TEX_ME;
+        ResourceLocation tex = menu.isAuto() ? TEX_AUTO : (adv ? TEX_ADV : TEX_ME);
         int px = progX();
         int py = progY();
 
@@ -178,7 +180,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         if (menu.isAuto()) {
             g.fill(patternX() - 1, patternY() - 1, patternX() + BTN + 1, patternY() + BTN + 1, 0xFF373737);
             g.fill(patternX(), patternY(), patternX() + BTN, patternY() + BTN, 0xFF8B8B8B);
-            g.drawString(font, "P", patternX() + 5, patternY() + 4, 0xFFFFFFFF, false);
+            g.drawString(font, "样板", patternX() + 1, patternY() + 4, 0xFFFFFFFF, false);
         }
     }
 
@@ -226,7 +228,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             g.drawString(font,
                     "缓存 " + fmt(menu.getGuiEnergy()) + "/" + fmt(menu.getGuiCapacity())
                             + " " + menu.getGuiEnergyUnit(),
-                    leftPos + 7, topPos + 87, 0xFF404040, false);
+                    leftPos + 8, topPos + 87, 0xFF404040, false);
         }
 
         if (inBtn(mouseX, mouseY, guideX(), guideY())) {
