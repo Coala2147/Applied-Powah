@@ -39,19 +39,19 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         this.access = ContainerLevelAccess.create(orb.getLevel(), orb.getBlockPos());
         ItemStackHandler inv = orb.getInv();
         boolean adv = orb instanceof AdvancedEnergizingOrbBlockEntity;
-        // Output slot (centered in 26×26 output area)
-        int outX = adv ? 112 : 123;
-        int outY = 47;
+        // Output slot (centered in 26×26 output area) — shifted +1,+1 per user spec
+        int outX = adv ? 113 : 124;
+        int outY = 48;
         this.addSlot(new SlotItemHandler(inv, 0, outX, outY) {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return false;
             }
         });
-        // Input slots (2×3 grid)
+        // Input slots (2×3 grid) — shifted +1,+1
         int[][] in = adv
-                ? new int[][]{{13, 29}, {31, 29}, {31, 47}, {13, 47}, {13, 65}, {31, 65}}
-                : new int[][]{{24, 29}, {42, 29}, {42, 47}, {24, 47}, {24, 65}, {42, 65}};
+                ? new int[][]{{14, 30}, {32, 30}, {32, 48}, {14, 48}, {14, 66}, {32, 66}}
+                : new int[][]{{25, 30}, {43, 30}, {43, 48}, {25, 48}, {25, 66}, {43, 66}};
         for (int i = 0; i < 6; i++) {
             this.addSlot(new SlotItemHandler(inv, 1 + i, in[i][0], in[i][1]));
         }
@@ -60,7 +60,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             AdvancedEnergizingOrbBlockEntity aorb = (AdvancedEnergizingOrbBlockEntity) orb;
             ItemStackHandler rods = aorb.getRodInv();
             for (int i = 0; i < AdvancedEnergizingOrbBlockEntity.ROD_SLOTS; i++) {
-                this.addSlot(new SlotItemHandler(rods, i, 152, 21 + i * 18) {
+                this.addSlot(new SlotItemHandler(rods, i, 153, 22 + i * 18) {
                     @Override
                     public boolean mayPlace(ItemStack stack) {
                         return stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem
@@ -71,14 +71,14 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             count += AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
         }
         this.orbSlots = count;
-        // Player inventory (imageHeight=199, matching AE2 Spatial IO layout)
+        // Player inventory — per user YAML: start x=7 y=114; hotbar y=172
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18, 117 + row * 18));
+                this.addSlot(new Slot(playerInv, col + row * 9 + 9, 7 + col * 18, 114 + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            this.addSlot(new Slot(playerInv, col, 8 + col * 18, 175));
+            this.addSlot(new Slot(playerInv, col, 7 + col * 18, 172));
         }
 
         // Live GUI sync — progress bar animates every tick these change

@@ -140,9 +140,27 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
         if (level == null || level.isClientSide) {
             return;
         }
+        BlockPos old = orbPos;
         BlockPos found = PowahBridge.findNearbyOrb(level, worldPosition, orbPos);
         orbPos = found == null ? BlockPos.ZERO : found;
+        if (!orbPos.equals(old)) {
+            setChanged();
+            syncToClient();
+        }
+    }
+
+    public void setOrbPos(BlockPos pos) {
+        this.orbPos = pos == null ? BlockPos.ZERO : pos;
         setChanged();
+        if (level != null && !level.isClientSide) {
+            syncToClient();
+        }
+    }
+
+    private void syncToClient() {
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 2);
+        }
     }
 
     @Override
@@ -159,6 +177,25 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
         super.loadTag(tag);
         bufferFe = tag.getLong("bufferFe");
         orbPos = new BlockPos(tag.getInt("orbX"), tag.getInt("orbY"), tag.getInt("orbZ"));
+    }
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = super.getUpdateTag();
+        tag.putLong("bufferFe", bufferFe);
+        tag.putInt("orbX", orbPos.getX());
+        tag.putInt("orbY", orbPos.getY());
+        tag.putInt("orbZ", orbPos.getZ());
+        tag.putLong("lastPushed", lastPushed);
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag);
+        bufferFe = tag.getLong("bufferFe");
+        orbPos = new BlockPos(tag.getInt("orbX"), tag.getInt("orbY"), tag.getInt("orbZ"));
+        lastPushed = tag.getLong("lastPushed");
     }
 
     @Override
@@ -234,7 +271,14 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
     }
 
     private void feedOrb() {
-        if (bufferFe <= 0 || level == null || !ModList.get().isLoaded("powah")) {
+        if (level == null || !ModList.get().isLoaded("powah")) {
+            return;
+        }
+        // Always keep orbPos up-to-date so the beam renderer knows the target
+        if (orbPos.equals(BlockPos.ZERO)) {
+            scanForOrb();
+        }
+        if (bufferFe <= 0) {
             return;
         }
         RodTier t = tier();
@@ -245,6 +289,7 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
             if (orbPos.equals(BlockPos.ZERO)) {
                 scanForOrb();
             }
+            syncToClient();
         }
     }
 

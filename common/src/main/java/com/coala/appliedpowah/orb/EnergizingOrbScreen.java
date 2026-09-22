@@ -52,7 +52,8 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         super(menu, inv, title);
         this.imageWidth = GUI_W;
         this.imageHeight = GUI_H;
-        this.inventoryLabelY = this.imageHeight - 94;
+        // Slot row 0 begins at y=114; keep 12 px gap like vanilla 166-height screens
+        this.inventoryLabelY = this.imageHeight - 97;
     }
 
     private static String fmt(long v) {
@@ -85,21 +86,21 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         return mx >= x && mx < x + BTN && my >= y && my < y + BTN;
     }
 
-    // Layout helpers — ME vs Advanced differ per latest JSON specs
+    // Layout helpers — ME vs Advanced differ per latest JSON specs (+1,+1 shift)
     private int progX() {
-        return menu.isAdvanced() ? 135 : 146;
+        return menu.isAdvanced() ? 136 : 147;
     }
 
     private int progY() {
-        return 47;
+        return 48;
     }
 
     private int alertX() {
-        return menu.isAdvanced() ? 112 : 123;
+        return menu.isAdvanced() ? 113 : 124;
     }
 
     private int alertY() {
-        return 47;
+        return 48;
     }
 
     private boolean hoverProgress(int mx, int my) {
@@ -223,14 +224,16 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         long prog = menu.getGuiProgress();
         long max = menu.getGuiRecipeEnergy();
         if (max > 0) {
+            // Fixed positions from user YAML (with-4-block:57,45 / without-4-block:68,45)
+            int energyX = menu.isAdvanced() ? leftPos + 57 : leftPos + 68;
             g.drawString(font, fmt(prog) + "/" + fmt(max),
-                    leftPos + progX() - 36, topPos + progY() + PROG_H + 2, 0xFF373737, false);
+                    energyX, topPos + 45, 0xFF404040, false);
         }
         if (menu.isAdvanced() && menu.getGuiCapacity() > 0) {
             g.drawString(font,
                     "缓存 " + fmt(menu.getGuiEnergy()) + "/" + fmt(menu.getGuiCapacity())
                             + " " + menu.getGuiEnergyUnit(),
-                    leftPos + 28, topPos + 70, 0xFF373737, false);
+                    leftPos + 13, topPos + 93, 0xFF404040, false);
         }
 
         if (inBtn(mouseX, mouseY, guideX(), guideY())) {

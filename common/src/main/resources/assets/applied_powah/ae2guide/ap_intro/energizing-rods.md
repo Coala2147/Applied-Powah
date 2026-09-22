@@ -37,11 +37,22 @@ Seven tiers, matching Powah: starter → basic → hardened → blazing → niot
 ## How to use
 
 1. Place the rod **next to an AE2 cable** — it will face that cable.
-2. Put a **Powah Energizing Orb** nearby, with a valid recipe inside.
+2. Put a **Powah Energizing Orb** (or AP ME/Advanced Orb) nearby, with a valid recipe inside.
 3. When the network has power (and a free channel), the rod pulls energy and pushes it into the orb. A beam shows it is working.
 
-Item tooltips show that tier’s **max buffer** and **max output** (same idea as Powah rods).
+Item tooltips show that tier's **max buffer** and **max output** (same idea as Powah rods).
 
-Mined rods do not keep internal energy.
+### Wrench link (Powah wrench)
+
+You can use a **Powah Wrench** in link mode to bind a rod to a specific orb:
+
+1. Switch the wrench to **Link** mode (shift-right-click in air).
+2. Right-click the **rod** — chat says "Start link".
+3. Right-click the **orb** — chat says "Link done".  
+   The rod will now target that orb even if other orbs are nearby.
+
+Right-clicking an AP orb with a linked wrench does **not** open the GUI; it completes the link instead.
+
+Mined rods keep stored buffer energy when broken (configurable via `rodsKeepEnergyOnBreak`).
 
 Without **Applied Flux**, ME rods cannot pull FE (their recipes are disabled too).

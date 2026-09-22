@@ -1,8 +1,17 @@
 package com.coala.appliedpowah.chargingrod;
 
 import appeng.blockentity.networking.CableBusBlockEntity;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -13,6 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -230,6 +240,66 @@ public class EnergizingRodBlock extends AEBaseEntityBlock<EnergizingRodBlockEnti
         }
         if (level.getBlockEntity(pos) instanceof EnergizingRodBlockEntity rod) {
             rod.onFacingMaybeChanged();
+        }
+    }
+
+    // ---- Powah wrench link support (no hard dep on Powah classes) ----
+
+    @Override
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        ItemStack held = player.getItemInHand(hand);
+        if (isPowahWrenchLink(held) && level.getBlockEntity(pos) instanceof EnergizingRodBlockEntity rod) {
+            if (level.isClientSide) {
+                return InteractionResult.SUCCESS;
+            }
+            CompoundTag nbt = getWrenchNBT(held);
+            if (nbt.contains("OrbPos", Tag.TAG_COMPOUND)) {
+                BlockPos orbPos = NbtUtils.readBlockPos(nbt.getCompound("OrbPos"));
+                if (isFeedableOrb(level, orbPos)) {
+                    int range = getPowahRange();
+                    if ((int) Math.sqrt(pos.distSqr(orbPos)) <= range) {
+                        rod.setOrbPos(orbPos);
+                        player.displayClientMessage(Component.translatable("chat.powah.wrench.link.done").withStyle(ChatFormatting.GOLD), true);
+                    } else {
+                        player.displayClientMessage(Component.translatable("chat.powah.wrench.link.fail").withStyle(ChatFormatting.RED), true);
+                    }
+                }
+                nbt.remove("OrbPos");
+            } else {
+                nbt.put("RodPos", NbtUtils.writeBlockPos(pos));
+                player.displayClientMessage(Component.translatable("chat.powah.wrench.link.start").withStyle(ChatFormatting.YELLOW), true);
+            }
+            return InteractionResult.CONSUME;
+        }
+        return InteractionResult.PASS;
+    }
+
+    private static boolean isPowahWrenchLink(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        var tag = stack.getTagElement("PowahWrenchNBT");
+        return tag != null && tag.getInt("WrenchMode") == 1; // 1 = LINK
+    }
+
+    private static CompoundTag getWrenchNBT(ItemStack stack) {
+        return stack.getOrCreateTagElement("PowahWrenchNBT");
+    }
+
+    private static boolean isFeedableOrb(Level level, BlockPos pos) {
+        if (level == null || !level.isLoaded(pos)) {
+            return false;
+        }
+        BlockEntity be = level.getBlockEntity(pos);
+        return be instanceof com.coala.appliedpowah.orb.EnergyAcceptingOrb
+                || (net.minecraftforge.fml.ModList.get().isLoaded("powah") && be instanceof owmii.powah.block.energizing.EnergizingOrbTile);
+    }
+
+    private static int getPowahRange() {
+        try {
+            return owmii.powah.Powah.config().general.energizing_range;
+        } catch (Throwable t) {
+            return 4;
         }
     }
 }

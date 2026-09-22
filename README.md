@@ -20,14 +20,15 @@ In-game documentation is merged into the **AE2 GuideME** book (`assets/applied_p
 | Super / Extreme Dense Energy Cell | 12.8M / 102.4M AE; crafted from 8× previous cell + calculation processor; keeps NBT when mined |
 | AE Energizing Rod ×7 tiers | Full block; extracts **AE** from the ME network; feeds nearby Energizing Orbs |
 | ME Energizing Rod ×7 tiers | Full block; extracts **FE** (Applied Flux) from the ME network; feeds nearby Energizing Orbs |
-| ME Energizing Orb | GUI machine; runs Powah energizing recipes; accepts rod energy; optional auto-export to ME/adjacent inventories |
-| Advanced Energizing Orb | ME Orb + 4 rod slots (up to 16 rods each); internal energy cache; network pull + rod feed dual charging |
+| ME Energizing Orb | GUI machine (176×199, AE2 Spatial IO style); runs Powah energizing recipes; accepts rod energy; optional auto-export to ME/adjacent inventories |
+| Advanced Energizing Orb | ME Orb + 4 rod slots; internal energy cache; network pull + rod feed dual charging |
 | Recipes | AE cross / ME corners + same-tier Powah rod; tier upgrades follow Powah patterns; AE↔ME shapeless; orb recipes gated by mod presence |
 | Placement | Rods require an adjacent AE2 cable; `facing` targets the cable; orbs connect on BOTTOM only |
 | Collision | Thin rod shape (Powah-like), not a full cube |
-| Beam | Visual beam while rods transfer energy to an orb |
+| Beam | Visual beam while rods transfer energy to an orb; also visible when holding a Powah wrench in link mode |
+| Wrench link | Powah wrench can bind AP rods to AP/Powah orbs (same link workflow as Powah) |
 
-Item tooltips follow AE2 wording and light-gray styling (`Stored Energy: … AE (…%)`). Rod items do not fabricate live stored energy. Behaviour details are in the GuideME book (`assets/applied_powah/ae2guide/`).
+Item tooltips follow AE2 wording and light-gray styling. Rod items keep stored buffer when mined (configurable). Behaviour details are in the GuideME book (`assets/applied_powah/ae2guide/`).
 
 ## Dependencies
 

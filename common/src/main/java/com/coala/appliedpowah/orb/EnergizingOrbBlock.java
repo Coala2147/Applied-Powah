@@ -1,8 +1,12 @@
 package com.coala.appliedpowah.orb;
 
 import appeng.block.AEBaseEntityBlock;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -105,6 +109,34 @@ public abstract class EnergizingOrbBlock<T extends MeEnergizingOrbBlockEntity> e
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hit) {
+        ItemStack held = player.getItemInHand(hand);
+        if (isPowahWrenchLink(held)) {
+            if (level.isClientSide) {
+                return InteractionResult.SUCCESS;
+            }
+            BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof MeEnergizingOrbBlockEntity) {
+                CompoundTag nbt = getWrenchNBT(held);
+                if (nbt.contains("RodPos", Tag.TAG_COMPOUND)) {
+                    BlockPos rodPos = NbtUtils.readBlockPos(nbt.getCompound("RodPos"));
+                    BlockEntity rodBe = level.getBlockEntity(rodPos);
+                    if (rodBe instanceof com.coala.appliedpowah.chargingrod.EnergizingRodBlockEntity rod) {
+                        int range = getPowahRange();
+                        if ((int) Math.sqrt(pos.distSqr(rodPos)) <= range) {
+                            rod.setOrbPos(pos);
+                            player.displayClientMessage(Component.translatable("chat.powah.wrench.link.done").withStyle(ChatFormatting.GOLD), true);
+                        } else {
+                            player.displayClientMessage(Component.translatable("chat.powah.wrench.link.fail").withStyle(ChatFormatting.RED), true);
+                        }
+                    }
+                    nbt.remove("RodPos");
+                } else {
+                    nbt.put("OrbPos", NbtUtils.writeBlockPos(pos));
+                    player.displayClientMessage(Component.translatable("chat.powah.wrench.link.start").withStyle(ChatFormatting.YELLOW), true);
+                }
+                return InteractionResult.CONSUME;
+            }
+        }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
@@ -125,6 +157,26 @@ public abstract class EnergizingOrbBlock<T extends MeEnergizingOrbBlockEntity> e
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
+    }
+
+    private static boolean isPowahWrenchLink(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        var tag = stack.getTagElement("PowahWrenchNBT");
+        return tag != null && tag.getInt("WrenchMode") == 1; // 1 = LINK
+    }
+
+    private static CompoundTag getWrenchNBT(ItemStack stack) {
+        return stack.getOrCreateTagElement("PowahWrenchNBT");
+    }
+
+    private static int getPowahRange() {
+        try {
+            return owmii.powah.Powah.config().general.energizing_range;
+        } catch (Throwable t) {
+            return 4;
+        }
     }
 
     @Override

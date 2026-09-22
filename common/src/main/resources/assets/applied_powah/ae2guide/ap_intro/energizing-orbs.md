@@ -73,13 +73,22 @@ is present. On the Advanced orb this fills the **rod cache**, not only one recip
 
 ## GUI
 
-Left toolbar (outside the main panel):
+The orb GUI is **176×199** (same height as AE2 Spatial IO) and contains:
 
-1. **?** — open this GuideME page
-2. **Auto-export** — toggle product push to ME
+- **6 input slots** (2×3 grid) on the left
+- **1 output slot** on the right (read-only)
+- **Vertical progress bar** next to the output slot
+- **Warning icon** on the output slot when energy is insufficient
+- **Recipe energy text** above the arrow (e.g. `0/300k`)
+- **Left toolbar** (outside the main panel):
+  1. **?** — open this GuideME page
+  2. **Auto-export** — toggle product push to ME
 
-Progress bar shows the current recipe buffer only. Advanced orb also shows
-`缓存 current/max` for the rod cache.
+Advanced orb also shows rod cache status (`缓存 current/max`) and has **4 rod slots** on the far right.
+
+### Wrench interaction
+
+Holding a **Powah Wrench** in link mode and right-clicking an orb **will not open the GUI**; instead it completes a rod→orb link (see Energizing Rods page).
 
 ## Recipes (temporary)
 
@@ -88,4 +97,4 @@ Progress bar shows the current recipe buffer only. Advanced orb also shows
 | ME Energizing Orb | Glass cable + Powah energizing orb + AE2 import bus |
 | Advanced Energizing Orb | ME orb + 7× nitro rods + AE2 energy acceptor |
 
-Exact JSONs may change before 0.2.x stable.
+Exact JSONs may change before stable release.

@@ -42,6 +42,20 @@ public class EnergizingRodRenderer implements BlockEntityRenderer<EnergizingRodB
 
         // Beam when we have buffer (charging pipeline active) — mirrors Powah showing link while working
         boolean show = be.getBufferFe() > 0 || be.isBeaming();
+        // Also show beam when player holds Powah wrench in link mode (visualise linkability)
+        if (!show) {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            var player = mc.player;
+            if (player != null) {
+                for (var hand : net.minecraft.world.InteractionHand.values()) {
+                    var stack = player.getItemInHand(hand);
+                    if (isPowahWrenchLink(stack)) {
+                        show = true;
+                        break;
+                    }
+                }
+            }
+        }
         if (!show) {
             return;
         }
@@ -107,6 +121,15 @@ public class EnergizingRodRenderer implements BlockEntityRenderer<EnergizingRodB
                 .uv2(15728880)
                 .normal(n, 0, 1, 0)
                 .endVertex();
+    }
+
+    /** Safe check for Powah wrench in LINK mode (no hard dep on Powah classes). */
+    private static boolean isPowahWrenchLink(net.minecraft.world.item.ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        var tag = stack.getTagElement("PowahWrenchNBT");
+        return tag != null && tag.getInt("WrenchMode") == 1; // 1 = LINK
     }
 
     private static int tierColor(EnergizingRodBlockEntity be) {
