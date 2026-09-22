@@ -3,6 +3,8 @@ package com.coala.appliedpowah.orb;
 import appeng.api.config.AccessRestriction;
 import appeng.api.networking.IGridNode;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.implementations.PatternProviderMenu;
@@ -20,19 +22,22 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+
 /**
  * Auto Energizing Orb.
- * Advanced orb + 36 pattern slots (4×9) acting as a Pattern Provider.
- * Works like an Advanced orb for energizing, while also exposing patterns to the ME network.
+ * Advanced orb + 36 pattern slots (4x9) acting as a Pattern Provider.
+ * Pattern inputs are routed directly into the orb's own input slots instead of adjacent blocks.
  */
 public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity implements PatternProviderLogicHost {
 
     public static final int PATTERN_SLOTS = 36;
 
-    private final PatternProviderLogic logic = new PatternProviderLogic(getMainNode(), this, PATTERN_SLOTS);
+    private final PatternProviderLogic logic = new AutoOrbPatternProviderLogic(getMainNode(), this, PATTERN_SLOTS);
 
     public AutoEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -85,7 +90,7 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
     @Override
     public EnumSet<Direction> getTargets() {
-        return EnumSet.allOf(Direction.class);
+        return EnumSet.noneOf(Direction.class);
     }
 
     @Override
@@ -94,7 +99,7 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     }
 
     @Override
-    public AEItemKey getTerminalIcon() {
+    public appeng.api.stacks.AEItemKey getTerminalIcon() {
         return AEItemKey.of(new ItemStack(APOrbs.AUTO_ORB_ITEM.get()));
     }
 
@@ -135,5 +140,62 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     @Override
     public AccessRestriction getPowerFlow() {
         return AccessRestriction.NO_ACCESS;
+    }
+
+    /**
+     * Accept pattern inputs directly into the orb's input slots (slots 1-6).
+     * Each slot can hold at most 1 item.
+     */
+    public boolean acceptPatternInputs(KeyCounter[] inputHolder) {
+        if (inputHolder == null || inputHolder.length == 0) {
+            return false;
+        }
+
+        // Collect all required item inputs
+        List<Object2LongMap.Entry<AEKey>> inputs = new ArrayList<>();
+        for (KeyCounter counter : inputHolder) {
+            if (counter == null || counter.isEmpty()) {
+                continue;
+            }
+            for (var entry : counter) {
+                inputs.add(entry);
+            }
+        }
+
+        if (inputs.isEmpty()) {
+            return false;
+        }
+
+        // Check that we have enough empty input slots
+        int emptySlots = 0;
+        for (int i = 1; i < inv.getSlots() && i < EnergizingOrbLogic.SLOTS; i++) {
+            if (inv.getStackInSlot(i).isEmpty()) {
+                emptySlots++;
+            }
+        }
+        if (emptySlots < inputs.size()) {
+            return false;
+        }
+
+        // Insert items into empty input slots
+        int slot = 1;
+        for (var entry : inputs) {
+            AEKey key = entry.getKey();
+            long amount = entry.getLongValue();
+            if (!(key instanceof AEItemKey itemKey) || amount <= 0) {
+                continue;
+            }
+            while (slot < inv.getSlots() && slot < EnergizingOrbLogic.SLOTS) {
+                if (inv.getStackInSlot(slot).isEmpty()) {
+                    ItemStack stack = itemKey.toStack((int) Math.min(amount, Integer.MAX_VALUE));
+                    inv.setStackInSlot(slot, stack);
+                    slot++;
+                    break;
+                }
+                slot++;
+            }
+        }
+
+        return true;
     }
 }

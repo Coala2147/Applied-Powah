@@ -52,17 +52,16 @@ public class EnergizingRodRenderer implements BlockEntityRenderer<EnergizingRodB
             return;
         }
 
-        boolean show = be.getBufferFe() > 0 || be.isBeaming();
-        if (!show) {
-            var mc = Minecraft.getInstance();
-            var player = mc.player;
-            if (player != null) {
-                for (var hand : InteractionHand.values()) {
-                    var stack = player.getItemInHand(hand);
-                    if (isPowahWrenchLink(stack)) {
-                        show = true;
-                        break;
-                    }
+        // Beam is ONLY visible when the player holds a Powah wrench in LINK mode.
+        boolean show = false;
+        var mc = Minecraft.getInstance();
+        var player = mc.player;
+        if (player != null) {
+            for (var hand : InteractionHand.values()) {
+                var stack = player.getItemInHand(hand);
+                if (isPowahWrenchLink(stack)) {
+                    show = true;
+                    break;
                 }
             }
         }
