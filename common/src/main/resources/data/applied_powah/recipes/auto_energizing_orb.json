@@ -1,0 +1,31 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " d ",
+    "cac",
+    " b "
+  ],
+  "key": {
+    "a": {
+      "item": "applied_powah:advanced_energizing_orb"
+    },
+    "b": {
+      "item": "ae2:pattern_provider"
+    },
+    "c": {
+      "item": "ae2:capacity_card"
+    },
+    "d": {
+      "item": "ae2:engineering_processor"
+    }
+  },
+  "result": {
+    "item": "applied_powah:auto_energizing_orb"
+  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "powah"
+    }
+  ]
+}

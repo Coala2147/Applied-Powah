@@ -1,20 +1,26 @@
 {
-  "type": "minecraft:crafting_shaped",
-  "pattern": [
-    "a",
-    "b",
-    "c"
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "powah:energizing_orb"
+    },
+    {
+      "item": "ae2:import_bus"
+    },
+    {
+      "item": "ae2:interface"
+    },
+    {
+      "item": "ae2:glass_cable"
+    }
   ],
-  "key": {
-    "a": { "item": "ae2:glass_cable" },
-    "b": { "item": "powah:energizing_orb" },
-    "c": { "item": "ae2:import_bus" }
-  },
   "result": {
     "item": "applied_powah:me_energizing_orb"
   },
   "conditions": [
-    { "condition": "forge:mod_loaded", "modid": "ae2" },
-    { "condition": "forge:mod_loaded", "modid": "powah" }
+    {
+      "type": "forge:mod_loaded",
+      "modid": "powah"
+    }
   ]
 }

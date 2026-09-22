@@ -1,15 +1,35 @@
 {
   "type": "minecraft:crafting_shaped",
-  "conditions": [
-    { "type": "forge:mod_loaded", "modid": "powah" },
-    { "type": "forge:mod_loaded", "modid": "appflux" }
+  "pattern": [
+    " q ",
+    "bcb",
+    " h "
   ],
-  "pattern": [ " q ", "bcb", " h " ],
   "key": {
-    "q": { "tag": "c:quartz_blocks" },
-    "b": { "item": "powah:capacitor_hardened" },
-    "c": { "item": "powah:dielectric_casing" },
-    "h": { "item": "applied_powah:me_energizing_rod_basic" }
+    "q": {
+      "tag": "c:quartz_blocks"
+    },
+    "b": {
+      "item": "powah:capacitor_hardened"
+    },
+    "c": {
+      "item": "powah:dielectric_casing"
+    },
+    "h": {
+      "item": "applied_powah:me_energizing_rod_basic"
+    }
   },
-  "result": { "item": "applied_powah:me_energizing_rod_hardened" }
+  "result": {
+    "item": "applied_powah:me_energizing_rod_hardened"
+  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "powah"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appflux"
+    }
+  ]
 }

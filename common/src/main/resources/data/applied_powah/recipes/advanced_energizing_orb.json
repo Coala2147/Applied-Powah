@@ -1,21 +1,28 @@
 {
-  "type": "minecraft:crafting_shapeless",
-  "ingredients": [
-    { "item": "applied_powah:me_energizing_orb" },
-    { "item": "ae2:energy_acceptor" },
-    { "item": "powah:energizing_rod_nitro" },
-    { "item": "powah:energizing_rod_nitro" },
-    { "item": "powah:energizing_rod_nitro" },
-    { "item": "powah:energizing_rod_nitro" },
-    { "item": "powah:energizing_rod_nitro" },
-    { "item": "powah:energizing_rod_nitro" },
-    { "item": "powah:energizing_rod_nitro" }
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "bbb",
+    "bab",
+    "bcb"
   ],
+  "key": {
+    "a": {
+      "item": "applied_powah:me_energizing_orb"
+    },
+    "b": {
+      "tag": "forge:nitro_rods"
+    },
+    "c": {
+      "item": "applied_powah:extreme_dense_energy_cell"
+    }
+  },
   "result": {
     "item": "applied_powah:advanced_energizing_orb"
   },
   "conditions": [
-    { "condition": "forge:mod_loaded", "modid": "ae2" },
-    { "condition": "forge:mod_loaded", "modid": "powah" }
+    {
+      "type": "forge:mod_loaded",
+      "modid": "powah"
+    }
   ]
 }

@@ -32,6 +32,11 @@ public final class APNetwork {
                 C2SToggleAutoExport::decode,
                 C2SToggleAutoExport::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(1, C2SOpenPatternMenu.class,
+                C2SOpenPatternMenu::encode,
+                C2SOpenPatternMenu::decode,
+                C2SOpenPatternMenu::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
         AppliedPowah.LOG.info("Registered AP network channel");
     }
 

@@ -22,11 +22,12 @@ In-game documentation is merged into the **AE2 GuideME** book (`assets/applied_p
 | ME Energizing Rod ×7 tiers | Full block; extracts **FE** (Applied Flux) from the ME network; feeds nearby Energizing Orbs |
 | ME Energizing Orb | GUI machine (176×199, AE2 Spatial IO style); runs Powah energizing recipes; accepts rod energy; optional auto-export to ME/adjacent inventories |
 | Advanced Energizing Orb | ME Orb + 4 rod slots; internal energy cache; network pull + rod feed dual charging |
+| Auto Energizing Orb | Advanced Orb + 36 pattern slots (4×9); acts as a Pattern Provider; can place processing patterns and accept crafting jobs from the ME network |
 | Recipes | AE cross / ME corners + same-tier Powah rod; tier upgrades follow Powah patterns; AE↔ME shapeless; orb recipes gated by mod presence |
 | Placement | Rods require an adjacent AE2 cable; `facing` targets the cable; orbs connect on BOTTOM only |
 | Collision | Thin rod shape (Powah-like), not a full cube |
-| Beam | Visual beam while rods transfer energy to an orb; also visible when holding a Powah wrench in link mode |
-| Wrench link | Powah wrench can bind AP rods to AP/Powah orbs (same link workflow as Powah) |
+| Beam | Powah-style textured beam while rods transfer energy to an orb; also visible when holding a Powah wrench in link mode |
+| Wrench link | Powah wrench can bind AP rods to AP/Powah orbs (same link workflow as Powah). Advanced / Auto orbs do not accept wrench links |
 
 Item tooltips follow AE2 wording and light-gray styling. Rod items keep stored buffer when mined (configurable). Behaviour details are in the GuideME book (`assets/applied_powah/ae2guide/`).
 

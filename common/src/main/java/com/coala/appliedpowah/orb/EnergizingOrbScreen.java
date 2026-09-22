@@ -4,6 +4,7 @@ import appeng.client.gui.Icon;
 import appeng.core.AppEng;
 import appeng.client.guidebook.PageAnchor;
 import com.coala.appliedpowah.network.APNetwork;
+import com.coala.appliedpowah.network.C2SOpenPatternMenu;
 import com.coala.appliedpowah.network.C2SToggleAutoExport;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -13,11 +14,11 @@ import net.minecraft.world.entity.player.Inventory;
 
 /**
  * Energizing orb GUI.
- * Progress / warning / auto-export read from menu DataSlots (server→client every tick)
+ * Progress / auto-export read from menu DataSlots (server→client every tick)
  * so the progress bar actually animates.
  *
- * Layering (reaction_chamber):
- * bg shell → progress sprite fill → power alert → AE2 toolbar icons.
+ * Layering:
+ * bg shell → progress sprite fill → AE2 toolbar icons.
  */
 public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMenu> {
 
@@ -32,13 +33,10 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
 
     // Texture atlas offsets within the 256×256 sheet
     private static final int TEX_PROG_X = 176;
-    private static final int TEX_ALERT_X = 182;
 
     /** Vertical progress beside output (6×18). */
     private static final int PROG_W = 6;
     private static final int PROG_H = 18;
-
-    private static final int ALERT_SIZE = 18;
 
     private static final ResourceLocation GUIDE_PAGE =
             new ResourceLocation("applied_powah", "ap_intro/energizing-orbs.md");
@@ -47,6 +45,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     private static final int TOOLBAR_X = -20;
     private static final int GUIDE_BTN_Y = 8;
     private static final int EXPORT_BTN_Y = 28;
+    private static final int PATTERN_BTN_Y = 48;
 
     public EnergizingOrbScreen(EnergizingOrbMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -82,6 +81,14 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         return topPos + EXPORT_BTN_Y;
     }
 
+    private int patternX() {
+        return leftPos + TOOLBAR_X;
+    }
+
+    private int patternY() {
+        return topPos + PATTERN_BTN_Y;
+    }
+
     private boolean inBtn(int mx, int my, int x, int y) {
         return mx >= x && mx < x + BTN && my >= y && my < y + BTN;
     }
@@ -95,22 +102,9 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         return 48;
     }
 
-    private int alertX() {
-        return menu.isAdvanced() ? 113 : 124;
-    }
-
-    private int alertY() {
-        return 48;
-    }
-
     private boolean hoverProgress(int mx, int my) {
         return mx >= leftPos + progX() - 2 && mx < leftPos + progX() + PROG_W + 2
                 && my >= topPos + progY() && my < topPos + progY() + PROG_H;
-    }
-
-    private boolean hoverAlert(int mx, int my) {
-        return mx >= leftPos + alertX() && mx < leftPos + alertX() + ALERT_SIZE
-                && my >= topPos + alertY() && my < topPos + alertY() + ALERT_SIZE;
     }
 
     private void openGuide() {
@@ -136,8 +130,6 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         ResourceLocation tex = adv ? TEX_ADV : TEX_ME;
         int px = progX();
         int py = progY();
-        int ax = alertX();
-        int ay = alertY();
 
         // 1) empty-shell background (176×199 from the 256×256 sheet)
         g.blit(tex, x, y, 0, 0, GUI_W, GUI_H, TEX_SIZE, TEX_SIZE);
@@ -162,18 +154,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             }
         }
 
-        // 3) power alert overlaid on output slot (DataSlot)
-        if (menu.getGuiShowWarning()) {
-            try {
-                g.blit(tex, x + ax, y + ay, TEX_ALERT_X, 0, ALERT_SIZE, ALERT_SIZE,
-                        TEX_SIZE, TEX_SIZE);
-            } catch (Throwable t) {
-                g.fill(x + ax + 2, y + ay + 2,
-                        x + ax + ALERT_SIZE - 2, y + ay + ALERT_SIZE - 2, 0xFFE65100);
-            }
-        }
-
-        // 4) left toolbar — AE2 states.png
+        // 3) left toolbar — AE2 states.png
         renderToolbarButtons(g);
     }
 
@@ -194,6 +175,11 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             g.fill(exportX() + 3, exportY() + 3, exportX() + 13, exportY() + 13,
                     on ? 0xFF00C853 : 0xFFC62828);
         }
+        if (menu.isAuto()) {
+            g.fill(patternX() - 1, patternY() - 1, patternX() + BTN + 1, patternY() + BTN + 1, 0xFF373737);
+            g.fill(patternX(), patternY(), patternX() + BTN, patternY() + BTN, 0xFF8B8B8B);
+            g.drawString(font, "P", patternX() + 5, patternY() + 4, 0xFFFFFFFF, false);
+        }
     }
 
     @Override
@@ -209,6 +195,13 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
                 var orb = menu.getOrb();
                 if (orb != null) {
                     APNetwork.sendToServer(new C2SToggleAutoExport(orb.getBlockPos()));
+                }
+                return true;
+            }
+            if (menu.isAuto() && inBtn(mx, my, patternX(), patternY())) {
+                var orb = menu.getOrb();
+                if (orb != null) {
+                    APNetwork.sendToServer(new C2SOpenPatternMenu(orb.getBlockPos()));
                 }
                 return true;
             }
@@ -233,7 +226,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             g.drawString(font,
                     "缓存 " + fmt(menu.getGuiEnergy()) + "/" + fmt(menu.getGuiCapacity())
                             + " " + menu.getGuiEnergyUnit(),
-                    leftPos + 13, topPos + 93, 0xFF404040, false);
+                    leftPos + 7, topPos + 87, 0xFF404040, false);
         }
 
         if (inBtn(mouseX, mouseY, guideX(), guideY())) {
@@ -244,14 +237,8 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
                             ? "applied_powah.gui.auto_export.on"
                             : "applied_powah.gui.auto_export.off"),
                     mouseX, mouseY);
-        } else if (menu.getGuiShowWarning() && hoverAlert(mouseX, mouseY)) {
-            g.renderTooltip(font,
-                    java.util.List.of(
-                            Component.translatable("applied_powah.gui.power_warning")
-                                    .withStyle(net.minecraft.ChatFormatting.RED).getVisualOrderText(),
-                            Component.translatable("applied_powah.gui.power_warning_details")
-                                    .withStyle(net.minecraft.ChatFormatting.GRAY).getVisualOrderText()),
-                    mouseX, mouseY);
+        } else if (menu.isAuto() && inBtn(mouseX, mouseY, patternX(), patternY())) {
+            g.renderTooltip(font, Component.translatable("applied_powah.gui.patterns"), mouseX, mouseY);
         } else if (max > 0 && hoverProgress(mouseX, mouseY)) {
             int pct = max <= 0 ? 0 : (int) Math.round(100.0 * prog / max);
             g.renderTooltip(font, Component.translatable(

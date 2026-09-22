@@ -1,14 +1,29 @@
 {
   "type": "minecraft:crafting_shaped",
-  "conditions": [
-    { "type": "forge:mod_loaded", "modid": "ae2" },
-    { "type": "forge:mod_loaded", "modid": "powah" },
-    { "type": "forge:mod_loaded", "modid": "appflux" }
+  "pattern": [
+    "a a",
+    " b ",
+    "a a"
   ],
-  "pattern": [ "a a", " b ", "a a" ],
   "key": {
-    "a": { "item": "ae2:energy_cell" },
-    "b": { "item": "powah:energizing_rod_hardened" }
+    "a": {
+      "item": "ae2:energy_cell"
+    },
+    "b": {
+      "item": "powah:energizing_rod_hardened"
+    }
   },
-  "result": { "item": "applied_powah:me_energizing_rod_hardened" }
+  "result": {
+    "item": "applied_powah:me_energizing_rod_hardened"
+  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "powah"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "appflux"
+    }
+  ]
 }

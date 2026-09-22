@@ -115,7 +115,12 @@ public abstract class EnergizingOrbBlock<T extends MeEnergizingOrbBlockEntity> e
                 return InteractionResult.SUCCESS;
             }
             BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof MeEnergizingOrbBlockEntity) {
+            if (be instanceof MeEnergizingOrbBlockEntity orb) {
+                // Advanced orb does not accept rod links (it has rod slots + network pull)
+                if (orb instanceof AdvancedEnergizingOrbBlockEntity) {
+                    player.displayClientMessage(Component.translatable("chat.powah.wrench.link.fail").withStyle(ChatFormatting.RED), true);
+                    return InteractionResult.CONSUME;
+                }
                 CompoundTag nbt = getWrenchNBT(held);
                 if (nbt.contains("RodPos", Tag.TAG_COMPOUND)) {
                     BlockPos rodPos = NbtUtils.readBlockPos(nbt.getCompound("RodPos"));

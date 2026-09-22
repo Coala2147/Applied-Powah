@@ -27,16 +27,22 @@ public final class APOrbs {
             new AtomicReference<>();
     private static final AtomicReference<BlockEntityType<AdvancedEnergizingOrbBlockEntity>> ADV_TYPE_REF =
             new AtomicReference<>();
+    private static final AtomicReference<BlockEntityType<AutoEnergizingOrbBlockEntity>> AUTO_TYPE_REF =
+            new AtomicReference<>();
 
     public static final RegistryObject<Block> ME_ORB = BLOCKS.register(
             "me_energizing_orb", MeEnergizingOrbBlock::new);
     public static final RegistryObject<Block> ADV_ORB = BLOCKS.register(
             "advanced_energizing_orb", AdvancedEnergizingOrbBlock::new);
+    public static final RegistryObject<Block> AUTO_ORB = BLOCKS.register(
+            "auto_energizing_orb", AutoEnergizingOrbBlock::new);
 
     public static final RegistryObject<Item> ME_ORB_ITEM = ITEMS.register(
             "me_energizing_orb", () -> new BlockItem(ME_ORB.get(), new Item.Properties()));
     public static final RegistryObject<Item> ADV_ORB_ITEM = ITEMS.register(
             "advanced_energizing_orb", () -> new BlockItem(ADV_ORB.get(), new Item.Properties()));
+    public static final RegistryObject<Item> AUTO_ORB_ITEM = ITEMS.register(
+            "auto_energizing_orb", () -> new BlockItem(AUTO_ORB.get(), new Item.Properties()));
 
     public static final RegistryObject<BlockEntityType<?>> ME_ORB_TYPE =
             BLOCK_ENTITIES.register("me_energizing_orb", () -> {
@@ -58,6 +64,16 @@ public final class APOrbs {
                 return type;
             });
 
+    public static final RegistryObject<BlockEntityType<?>> AUTO_ORB_TYPE =
+            BLOCK_ENTITIES.register("auto_energizing_orb", () -> {
+                BlockEntityType<AutoEnergizingOrbBlockEntity> type = BlockEntityType.Builder
+                        .of((pos, state) -> new AutoEnergizingOrbBlockEntity(AUTO_TYPE_REF.get(), pos, state),
+                                AUTO_ORB.get())
+                        .build(null);
+                AUTO_TYPE_REF.set(type);
+                return type;
+            });
+
     @SuppressWarnings("unchecked")
     public static BlockEntityType<MeEnergizingOrbBlockEntity> meType() {
         return (BlockEntityType<MeEnergizingOrbBlockEntity>) (BlockEntityType<?>) ME_TYPE_REF.get();
@@ -66,6 +82,11 @@ public final class APOrbs {
     @SuppressWarnings("unchecked")
     public static BlockEntityType<AdvancedEnergizingOrbBlockEntity> advType() {
         return (BlockEntityType<AdvancedEnergizingOrbBlockEntity>) (BlockEntityType<?>) ADV_TYPE_REF.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static BlockEntityType<AutoEnergizingOrbBlockEntity> autoType() {
+        return (BlockEntityType<AutoEnergizingOrbBlockEntity>) (BlockEntityType<?>) AUTO_TYPE_REF.get();
     }
 
     public static final RegistryObject<net.minecraft.world.inventory.MenuType<EnergizingOrbMenu>> ORB_MENU =
@@ -98,6 +119,10 @@ public final class APOrbs {
                 @SuppressWarnings({"unchecked", "rawtypes"})
                 appeng.block.AEBaseEntityBlock advBlock = (appeng.block.AEBaseEntityBlock) ADV_ORB.get();
                 advBlock.setBlockEntity(AdvancedEnergizingOrbBlockEntity.class, advType(), null, null);
+
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                appeng.block.AEBaseEntityBlock autoBlock = (appeng.block.AEBaseEntityBlock) AUTO_ORB.get();
+                autoBlock.setBlockEntity(AutoEnergizingOrbBlockEntity.class, autoType(), null, null);
 
                 AppliedPowah.LOG.info("Bound orb block entities to AEBaseEntityBlock");
             } catch (Throwable t) {

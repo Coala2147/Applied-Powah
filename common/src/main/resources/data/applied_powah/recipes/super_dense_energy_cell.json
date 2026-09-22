@@ -1,10 +1,19 @@
 {
   "type": "minecraft:crafting_shaped",
-  "conditions": [ { "type": "forge:mod_loaded", "modid": "ae2" } ],
-  "pattern": [ "aaa", "aba", "aaa" ],
+  "pattern": [
+    "aaa",
+    "aba",
+    "aaa"
+  ],
   "key": {
-    "a": { "item": "ae2:dense_energy_cell" },
-    "b": { "item": "ae2:calculation_processor" }
+    "a": {
+      "item": "ae2:dense_energy_cell"
+    },
+    "b": {
+      "item": "ae2:calculation_processor"
+    }
   },
-  "result": { "item": "applied_powah:super_dense_energy_cell" }
+  "result": {
+    "item": "applied_powah:super_dense_energy_cell"
+  }
 }

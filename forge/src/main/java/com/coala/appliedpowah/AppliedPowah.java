@@ -70,6 +70,9 @@ public final class AppliedPowah {
                             if (com.coala.appliedpowah.orb.APOrbs.ADV_ORB_ITEM.isPresent()) {
                                 output.accept(com.coala.appliedpowah.orb.APOrbs.ADV_ORB_ITEM.get());
                             }
+                            if (com.coala.appliedpowah.orb.APOrbs.AUTO_ORB_ITEM.isPresent()) {
+                                output.accept(com.coala.appliedpowah.orb.APOrbs.AUTO_ORB_ITEM.get());
+                            }
                         } catch (Throwable t) {
                             // powah missing — orbs unregistered
                         }

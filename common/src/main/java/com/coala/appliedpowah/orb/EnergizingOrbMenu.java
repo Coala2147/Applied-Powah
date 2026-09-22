@@ -28,7 +28,6 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
     // Synced to client via DataSlot (server get() → client set())
     private int syncProgress;
     private int syncRecipeEnergy;
-    private int syncShowWarning;
     private int syncAutoExport;
     private int syncAdvEnergy;
     private int syncAdvCapacity;
@@ -71,14 +70,14 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             count += AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
         }
         this.orbSlots = count;
-        // Player inventory — per user YAML: start x=7 y=114; hotbar y=172
+        // Player inventory — shifted +1,+1 from YAML spec
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(playerInv, col + row * 9 + 9, 7 + col * 18, 114 + row * 18));
+                this.addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18, 115 + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            this.addSlot(new Slot(playerInv, col, 7 + col * 18, 172));
+            this.addSlot(new Slot(playerInv, col, 8 + col * 18, 173));
         }
 
         // Live GUI sync — progress bar animates every tick these change
@@ -102,17 +101,6 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             @Override
             public void set(int value) {
                 syncRecipeEnergy = value;
-            }
-        });
-        this.addDataSlot(new DataSlot() {
-            @Override
-            public int get() {
-                return orb.isShowWarning() ? 1 : 0;
-            }
-
-            @Override
-            public void set(int value) {
-                syncShowWarning = value;
             }
         });
         this.addDataSlot(new DataSlot() {
@@ -169,10 +157,6 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         return syncRecipeEnergy;
     }
 
-    public boolean getGuiShowWarning() {
-        return syncShowWarning != 0;
-    }
-
     public boolean getGuiAutoExport() {
         return syncAutoExport != 0;
     }
@@ -191,6 +175,10 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
 
     public boolean isAdvanced() {
         return orb instanceof AdvancedEnergizingOrbBlockEntity;
+    }
+
+    public boolean isAuto() {
+        return orb instanceof AutoEnergizingOrbBlockEntity;
     }
 
     @Override
