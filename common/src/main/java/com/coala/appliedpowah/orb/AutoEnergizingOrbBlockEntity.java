@@ -52,7 +52,13 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     @Override
     public void onMainNodeStateChanged(appeng.api.networking.IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
-        this.logic.onMainNodeStateChanged();
+        // PatternProviderLogic.alertDevice throws if this node is not alertable
+        // (we reclaimed IGridTickable from its Ticker). Swallow — our own
+        // tickingRequest already drains the return inventory.
+        try {
+            this.logic.onMainNodeStateChanged();
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
