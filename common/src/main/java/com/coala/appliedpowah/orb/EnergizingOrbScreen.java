@@ -12,13 +12,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
- * Energizing orb GUI — reaction_chamber layering:
- * <ul>
- *   <li>background texture = empty shell only (no progress fill, no alert)</li>
- *   <li>progress_bar.png = sprite; fill height by progress/max</li>
- *   <li>power_alert.png = sprite; visible only when menu warning</li>
- *   <li>left toolbar = AE2 Icon.HELP / AUTO_EXPORT (states.png, not in bg)</li>
- * </ul>
+ * Energizing orb GUI.
+ * Progress / warning / auto-export read from menu DataSlots (server→client every tick)
+ * so the progress bar actually animates.
+ *
+ * Layering (reaction_chamber):
+ * bg shell → progress sprite fill → power alert → AE2 toolbar icons.
  */
 public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMenu> {
 
@@ -34,13 +33,12 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     private static final int GUI_W = 176;
     private static final int GUI_H = 166;
 
-    /** Progress widget (track beside output) — matches mock / reaction_chamber. */
+    /** Vertical progress beside output (6×18). */
     private static final int PROG_X = 132;
     private static final int PROG_Y = 36;
     private static final int PROG_W = 6;
     private static final int PROG_H = 18;
 
-    /** Power alert widget — outside shell, top-right of panel. */
     private static final int ALERT_X = 117;
     private static final int ALERT_Y = 68;
     private static final int ALERT_SIZE = 18;
@@ -91,7 +89,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     }
 
     private boolean hoverProgress(int mx, int my) {
-        return mx >= leftPos + PROG_X && mx < leftPos + PROG_X + PROG_W
+        return mx >= leftPos + PROG_X - 2 && mx < leftPos + PROG_X + PROG_W + 2
                 && my >= topPos + PROG_Y && my < topPos + PROG_Y + PROG_H;
     }
 
@@ -119,31 +117,45 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     protected void renderBg(GuiGraphics g, float partial, int mouseX, int mouseY) {
         int x = leftPos;
         int y = topPos;
-        var orb = menu.getOrb();
-        boolean adv = orb instanceof AdvancedEnergizingOrbBlockEntity;
+        boolean adv = menu.isAdvanced();
 
-        // Layer 1: empty-shell background only
+        // 1) empty-shell background
         g.blit(adv ? TEX_ADV : TEX_ME, x, y, 0, 0, GUI_W, GUI_H);
 
-        // Layer 2: progress widget — blit sprite cropped by progress (VERTICAL fill from bottom)
-        long prog = orb == null ? 0 : orb.getProgress();
-        long max = orb == null ? 0 : orb.getRecipeEnergy();
-        if (max > 0 && prog > 0) {
-            int fillH = (int) Math.min(PROG_H, (prog * PROG_H) / max);
-            int srcY = PROG_H - fillH;
-            g.blit(TEX_PROG,
-                    x + PROG_X, y + PROG_Y + srcY,
-                    0, srcY,
-                    PROG_W, fillH,
-                    PROG_W, PROG_H);
+        // 2) progress track (empty) + fill from DataSlot values — bar moves as energy fills
+        long prog = menu.getGuiProgress();
+        long max = menu.getGuiRecipeEnergy();
+        // dark track so the fill is always visible against the shell
+        g.fill(x + PROG_X, y + PROG_Y, x + PROG_X + PROG_W, y + PROG_Y + PROG_H, 0xFF373737);
+        if (max > 0) {
+            int fillH = (int) ((prog * (long) PROG_H) / max);
+            if (fillH > PROG_H) {
+                fillH = PROG_H;
+            }
+            if (fillH > 0) {
+                // fill from bottom (VERTICAL ProgressBar): bottom-up green bar
+                int top = y + PROG_Y + (PROG_H - fillH);
+                int srcY = PROG_H - fillH;
+                try {
+                    g.blit(TEX_PROG, x + PROG_X, top, 0, srcY, PROG_W, fillH, PROG_W, PROG_H);
+                } catch (Throwable t) {
+                    g.fill(x + PROG_X, top, x + PROG_X + PROG_W, y + PROG_Y + PROG_H, 0xFF00C853);
+                }
+            }
         }
 
-        // Layer 3: power alert — reaction_chamber AlertWidget, visible = showWarning
-        if (orb != null && orb.isShowWarning()) {
-            g.blit(TEX_ALERT, x + ALERT_X, y + ALERT_Y, 0, 0, ALERT_SIZE, ALERT_SIZE, ALERT_SIZE, ALERT_SIZE);
+        // 3) power alert (DataSlot)
+        if (menu.getGuiShowWarning()) {
+            try {
+                g.blit(TEX_ALERT, x + ALERT_X, y + ALERT_Y, 0, 0, ALERT_SIZE, ALERT_SIZE,
+                        ALERT_SIZE, ALERT_SIZE);
+            } catch (Throwable t) {
+                g.fill(x + ALERT_X + 2, y + ALERT_Y + 2,
+                        x + ALERT_X + ALERT_SIZE - 2, y + ALERT_Y + ALERT_SIZE - 2, 0xFFE65100);
+            }
         }
 
-        // Layer 4: left toolbar (AE2 states.png) — never baked into background
+        // 4) left toolbar — AE2 states.png
         renderToolbarButtons(g);
     }
 
@@ -157,8 +169,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         } catch (Throwable t) {
             g.drawString(font, "?", guideX() + 5, guideY() + 4, 0xFFFFFFFF, false);
         }
-        var orb = menu.getOrb();
-        boolean on = orb != null && orb.isAutoExport();
+        boolean on = menu.getGuiAutoExport();
         try {
             (on ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF).getBlitter().dest(exportX(), exportY()).blit(g);
         } catch (Throwable t) {
@@ -180,7 +191,6 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
                 var orb = menu.getOrb();
                 if (orb != null) {
                     APNetwork.sendToServer(new C2SToggleAutoExport(orb.getBlockPos()));
-                    orb.setAutoExport(!orb.isAutoExport());
                 }
                 return true;
             }
@@ -192,38 +202,37 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         renderBackground(g);
         super.render(g, mouseX, mouseY, partial);
-        var orb = menu.getOrb();
 
-        if (orb != null && orb.getRecipeEnergy() > 0) {
-            g.drawString(font,
-                    fmt(orb.getProgress()) + "/" + fmt(orb.getRecipeEnergy()),
-                    leftPos + PROG_X - 40, topPos + PROG_Y + PROG_H + 2, 0xFF373737, false);
+        long prog = menu.getGuiProgress();
+        long max = menu.getGuiRecipeEnergy();
+        if (max > 0) {
+            g.drawString(font, fmt(prog) + "/" + fmt(max),
+                    leftPos + PROG_X - 36, topPos + PROG_Y + PROG_H + 2, 0xFF373737, false);
         }
-        if (orb instanceof AdvancedEnergizingOrbBlockEntity adv && adv.getDisplayCapacity() > 0) {
+        if (menu.isAdvanced() && menu.getGuiCapacity() > 0) {
             g.drawString(font,
-                    "缓存 " + fmt(adv.getDisplayEnergy()) + "/" + fmt(adv.getDisplayCapacity())
-                            + " " + adv.getEnergyUnit(),
+                    "缓存 " + fmt(menu.getGuiEnergy()) + "/" + fmt(menu.getGuiCapacity())
+                            + " " + menu.getGuiEnergyUnit(),
                     leftPos + 28, topPos + 70, 0xFF373737, false);
         }
 
         if (inBtn(mouseX, mouseY, guideX(), guideY())) {
             g.renderTooltip(font, Component.translatable("applied_powah.gui.guide"), mouseX, mouseY);
         } else if (inBtn(mouseX, mouseY, exportX(), exportY())) {
-            boolean on = orb != null && orb.isAutoExport();
             g.renderTooltip(font, Component.translatable(
-                    on ? "applied_powah.gui.auto_export.on" : "applied_powah.gui.auto_export.off"),
+                    menu.getGuiAutoExport()
+                            ? "applied_powah.gui.auto_export.on"
+                            : "applied_powah.gui.auto_export.off"),
                     mouseX, mouseY);
-        } else if (orb != null && orb.isShowWarning() && hoverAlert(mouseX, mouseY)) {
+        } else if (menu.getGuiShowWarning() && hoverAlert(mouseX, mouseY)) {
             g.renderTooltip(font,
                     java.util.List.of(
                             Component.translatable("applied_powah.gui.power_warning")
-                                    .withStyle(net.minecraft.ChatFormatting.RED),
+                                    .withStyle(net.minecraft.ChatFormatting.RED).getVisualOrderText(),
                             Component.translatable("applied_powah.gui.power_warning_details")
-                                    .withStyle(net.minecraft.ChatFormatting.GRAY)),
+                                    .withStyle(net.minecraft.ChatFormatting.GRAY).getVisualOrderText()),
                     mouseX, mouseY);
-        } else if (orb != null && orb.getRecipeEnergy() > 0 && hoverProgress(mouseX, mouseY)) {
-            long prog = orb.getProgress();
-            long max = orb.getRecipeEnergy();
+        } else if (max > 0 && hoverProgress(mouseX, mouseY)) {
             int pct = max <= 0 ? 0 : (int) Math.round(100.0 * prog / max);
             g.renderTooltip(font, Component.translatable(
                     "applied_powah.tooltip.progress", fmt(prog), fmt(max), pct), mouseX, mouseY);

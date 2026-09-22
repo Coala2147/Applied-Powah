@@ -6,6 +6,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -14,12 +15,23 @@ import net.minecraftforge.items.SlotItemHandler;
 
 /**
  * 6+1 task slots; Advanced orb adds 4 rod slots. Output is read-only for players.
+ *
+ * Client GUI must read progress / warning / autoExport from DataSlots —
+ * the client BlockEntity is not guaranteed to carry live buffer values.
  */
 public class EnergizingOrbMenu extends AbstractContainerMenu {
 
     private final MeEnergizingOrbBlockEntity orb;
     private final ContainerLevelAccess access;
     private final int orbSlots;
+
+    // Synced to client via DataSlot (server get() → client set())
+    private int syncProgress;
+    private int syncRecipeEnergy;
+    private int syncShowWarning;
+    private int syncAutoExport;
+    private int syncAdvEnergy;
+    private int syncAdvCapacity;
 
     public EnergizingOrbMenu(int id, Inventory playerInv, MeEnergizingOrbBlockEntity orb) {
         super(APOrbs.ORB_MENU.get(), id);
@@ -39,7 +51,6 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         int count = 7;
         if (orb instanceof AdvancedEnergizingOrbBlockEntity adv) {
             ItemStackHandler rods = adv.getRodInv();
-            // Rod column inside panel, aligned to with-4-block mock (x≈148–166)
             for (int i = 0; i < AdvancedEnergizingOrbBlockEntity.ROD_SLOTS; i++) {
                 this.addSlot(new SlotItemHandler(rods, i, 148, 24 + i * 18) {
                     @Override
@@ -60,6 +71,74 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         for (int col = 0; col < 9; col++) {
             this.addSlot(new Slot(playerInv, col, 8 + col * 18, 142));
         }
+
+        // Live GUI sync — progress bar animates every tick these change
+        this.addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return (int) Math.min(Integer.MAX_VALUE, orb.getProgress());
+            }
+
+            @Override
+            public void set(int value) {
+                syncProgress = value;
+            }
+        });
+        this.addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return (int) Math.min(Integer.MAX_VALUE, orb.getRecipeEnergy());
+            }
+
+            @Override
+            public void set(int value) {
+                syncRecipeEnergy = value;
+            }
+        });
+        this.addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return orb.isShowWarning() ? 1 : 0;
+            }
+
+            @Override
+            public void set(int value) {
+                syncShowWarning = value;
+            }
+        });
+        this.addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return orb.isAutoExport() ? 1 : 0;
+            }
+
+            @Override
+            public void set(int value) {
+                syncAutoExport = value;
+            }
+        });
+        this.addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return (int) Math.min(Integer.MAX_VALUE, orb.getDisplayEnergy());
+            }
+
+            @Override
+            public void set(int value) {
+                syncAdvEnergy = value;
+            }
+        });
+        this.addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return (int) Math.min(Integer.MAX_VALUE, orb.getDisplayCapacity());
+            }
+
+            @Override
+            public void set(int value) {
+                syncAdvCapacity = value;
+            }
+        });
     }
 
     public static EnergizingOrbMenu clientFactory(int id, Inventory inv, FriendlyByteBuf buf) {
@@ -70,6 +149,39 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             return new EnergizingOrbMenu(id, inv, orb);
         }
         throw new IllegalStateException("Energizing orb missing at " + pos);
+    }
+
+    /** GUI-facing: DataSlot value on client, live BE value on server. */
+    public long getGuiProgress() {
+        return syncProgress;
+    }
+
+    public long getGuiRecipeEnergy() {
+        return syncRecipeEnergy;
+    }
+
+    public boolean getGuiShowWarning() {
+        return syncShowWarning != 0;
+    }
+
+    public boolean getGuiAutoExport() {
+        return syncAutoExport != 0;
+    }
+
+    public long getGuiEnergy() {
+        return syncAdvEnergy;
+    }
+
+    public long getGuiCapacity() {
+        return syncAdvCapacity;
+    }
+
+    public String getGuiEnergyUnit() {
+        return orb instanceof AdvancedEnergizingOrbBlockEntity adv && adv.isAeDisplay() ? "AE" : "FE";
+    }
+
+    public boolean isAdvanced() {
+        return orb instanceof AdvancedEnergizingOrbBlockEntity;
     }
 
     @Override
