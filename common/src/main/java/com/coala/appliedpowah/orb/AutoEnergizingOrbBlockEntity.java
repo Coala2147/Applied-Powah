@@ -173,21 +173,15 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
     @Override
     public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
-        // Never expose fluid/energy from the pattern-provider generic inv —
-        // Jade otherwise draws a bogus 36 000 mB tank on the orb.
-        if (cap == net.minecraftforge.common.capabilities.ForgeCapabilities.FLUID_HANDLER
-                || cap == net.minecraftforge.common.capabilities.ForgeCapabilities.ENERGY) {
-            return super.getCapability(cap, side);
-        }
-        var lo = logic.getCapability(cap);
-        if (lo.isPresent()) {
-            return lo;
-        }
+        // Do NOT forward pattern-provider GenericStackInv capabilities.
+        // useRegisteredCapacities() exposes a 9-slot fluid tank (Jade: 36 000 mB)
+        // and a fake energy buffer. PatternProviderMenu reaches the inventories
+        // through logic.getPatternInv()/getReturnInv() directly — not via capability.
         return super.getCapability(cap, side);
     }
 
     public void openPatternMenu(Player player, MenuLocator locator) {
-        appeng.menu.MenuOpener.open(PatternProviderMenu.TYPE, player, locator);
+        appeng.menu.MenuOpener.open(AutoOrbPatternMenu.TYPE, player, locator);
     }
 
     @Override
@@ -197,32 +191,61 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
     @Override
     protected void completeIfPossible() {
-        super.completeIfPossible();
-        // After a craft, hand the result to the pattern-provider return inventory
-        // so the crafting CPU gets its item back even if auto-export is off.
-        try {
-            ItemStack out = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
-            if (out.isEmpty()) {
-                return;
-            }
-            var ret = logic.getReturnInv();
-            if (ret == null) {
-                return;
-            }
-            AEItemKey key = AEItemKey.of(out);
-            if (key == null) {
-                return;
-            }
-            long before = out.getCount();
-            long inserted = ret.insert(key, before, appeng.api.config.Actionable.MODULATE,
-                    new appeng.me.helpers.MachineSource(this));
-            if (inserted > 0) {
-                inv.extractItem(EnergizingOrbLogic.OUTPUT, (int) inserted, false);
-                setChanged();
-                markForUpdate();
-            }
-        } catch (Throwable ignored) {
+        // Single output path: result goes ONLY to the pattern-provider return
+        // inventory (CPU pickup). Never leave it in the orb output slot —
+        // auto-export would then push a second copy into the network.
+        if (completing || level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
+            return;
         }
+        ItemStack result;
+        try {
+            result = recipe.getResultItem(level.registryAccess()).copy();
+        } catch (Throwable t) {
+            try {
+                result = recipe.getResultItem().copy();
+            } catch (Throwable ignored) {
+                return;
+            }
+        }
+        if (result.isEmpty()) {
+            return;
+        }
+        int resultCount = result.getCount();
+        if (resultCount <= 0 || resultCount > 64) {
+            return;
+        }
+
+        completing = true;
+        try {
+            for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
+                if (!inv.getStackInSlot(i).isEmpty()) {
+                    inv.extractItem(i, 1, false);
+                }
+            }
+            bufferFe = Math.max(0, bufferFe - recipeEnergy);
+            recipeEnergy = 0;
+            recipe = null;
+            containRecipe = false;
+
+            // Hand the exact result to the return inventory — once.
+            try {
+                AEItemKey key = AEItemKey.of(result);
+                if (key != null) {
+                    var ret = logic.getReturnInv();
+                    if (ret != null) {
+                        ret.insert(key, resultCount, appeng.api.config.Actionable.MODULATE,
+                                new appeng.me.helpers.MachineSource(this));
+                    }
+                }
+            } catch (Throwable ignored) {
+                // Fallback: drop into the orb output slot so the item is not voided.
+                inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result);
+            }
+        } finally {
+            completing = false;
+        }
+        setChanged();
+        markForUpdate();
     }
 
     /**

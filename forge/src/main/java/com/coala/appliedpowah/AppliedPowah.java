@@ -119,6 +119,16 @@ public final class AppliedPowah {
             } catch (Throwable t) {
                 LOG.warn("Orb screen not registered: {}", t.toString());
             }
+            try {
+                // Mirrors ExtendedAE: InitScreens ties MenuType to a ScreenStyle JSON.
+                appeng.init.client.InitScreens.register(
+                        com.coala.appliedpowah.orb.AutoOrbPatternMenu.TYPE,
+                        com.coala.appliedpowah.orb.AutoOrbPatternScreen::new,
+                        "/screens/auto_orb_patterns.json");
+                LOG.info("Registered auto orb pattern screen (4x9 Ex-Provider layout)");
+            } catch (Throwable t) {
+                LOG.warn("Auto orb pattern screen not registered: {}", t.toString());
+            }
         });
     }
 
