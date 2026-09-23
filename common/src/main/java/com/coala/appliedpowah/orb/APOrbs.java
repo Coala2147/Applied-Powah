@@ -112,7 +112,8 @@ public final class APOrbs {
         MENUS.register(bus);
         bus.addListener(APOrbs::onCommonSetup);
         bus.addListener(APOrbs::onRegisterMenuTypes);
-        bus.addListener(APOrbs::onMissingMappings);
+        // MissingMappingsEvent is a GAME-bus event (IModBusEvent check fails on mod bus).
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(APOrbs::onMissingMappings);
         AppliedPowah.LOG.info("Registered AP energizing orbs (fluix / advanced / me)");
     }
 
