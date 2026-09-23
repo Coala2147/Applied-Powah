@@ -42,4 +42,13 @@ class OrbCraftGateTest {
         assertFalse(OrbCraftGate.canAcceptFullSet(2, 3));
         assertFalse(OrbCraftGate.canAcceptFullSet(3, 0));
     }
+
+    @Test
+    void blockingModeRefusesWhenTargetHasPatternInput() {
+        // AE2: isBlocking && containsPatternInput → skip push
+        assertTrue(OrbCraftGate.blocksPush(true, true));
+        assertFalse(OrbCraftGate.blocksPush(true, false));
+        assertFalse(OrbCraftGate.blocksPush(false, true));
+        assertFalse(OrbCraftGate.blocksPush(false, false));
+    }
 }

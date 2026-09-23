@@ -3,11 +3,19 @@ package com.coala.appliedpowah.meorb;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IManagedGridNode;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
+import com.coala.appliedpowah.orb.EnergizingOrbLogic;
+import com.coala.appliedpowah.orb.OrbCraftGate;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * ME 充能台样板仓 + CPU 握手（EAE 1.21.1 样板页）。
+ *
+ * 阻挡模式对齐 AE2 {@code PatternProviderLogic.pushPattern}：
+ * isBlocking 且目标（此处 = 台输入槽 1..6）里已出现任一样板原料 key → 拒绝再投。
  */
 public class MePatternLogic extends PatternProviderLogic {
 
@@ -43,10 +51,45 @@ public class MePatternLogic extends PatternProviderLogic {
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
+        // AE2 blocking: target already holds a pattern input → refuse (do not mix sets).
+        if (OrbCraftGate.blocksPush(isBlocking(), craftSlotsContainPatternInput())) {
+            return false;
+        }
         if (isBusy()) {
             return false;
         }
         return meOrb.acceptCpuPatternInputs(inputHolder);
+    }
+
+    /**
+     * Target inventory for blocking = orb craft slots 1..6.
+     * Match AE2 {@code containsPatternInput}: any available pattern's input key
+     * (secondary dropped) present in the target.
+     */
+    private boolean craftSlotsContainPatternInput() {
+        var inv = meOrb.getInv();
+        int slots = Math.min(EnergizingOrbLogic.SLOTS, inv.getSlots());
+        for (int slot = 1; slot < slots; slot++) {
+            ItemStack stack = inv.getStackInSlot(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            AEItemKey itemKey = AEItemKey.of(stack);
+            if (itemKey == null) {
+                continue;
+            }
+            AEKey flat = itemKey.dropSecondary();
+            for (IPatternDetails p : getAvailablePatterns()) {
+                for (var input : p.getInputs()) {
+                    for (var cand : input.getPossibleInputs()) {
+                        if (cand.what().dropSecondary().equals(flat)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private boolean holdsPattern(IPatternDetails patternDetails) {

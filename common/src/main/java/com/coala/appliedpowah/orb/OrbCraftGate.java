@@ -24,4 +24,12 @@ public final class OrbCraftGate {
     public static boolean canAcceptFullSet(int emptyInputSlots, int requiredEmpty) {
         return requiredEmpty > 0 && emptyInputSlots >= requiredEmpty;
     }
+
+    /**
+     * AE2 PatternProvider blocking: when enabled, refuse push if the target
+     * already contains any key from the provider's pattern-input set.
+     */
+    public static boolean blocksPush(boolean isBlocking, boolean targetContainsPatternInput) {
+        return isBlocking && targetContainsPatternInput;
+    }
 }

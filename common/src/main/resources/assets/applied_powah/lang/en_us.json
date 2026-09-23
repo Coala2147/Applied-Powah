@@ -49,5 +49,6 @@
   "applied_powah.gui.power_warning_details": "Recipe ready but energy cache empty — check rods or ME network pull",
   "block.applied_powah.me_energizing_orb": "ME Energizing Orb",
   "item.applied_powah.me_energizing_orb": "ME Energizing Orb",
-  "applied_powah.gui.patterns": "Patterns"
+  "applied_powah.gui.patterns": "Patterns",
+  "applied_powah.gui.back_to_orb": "Back to orb"
 }
