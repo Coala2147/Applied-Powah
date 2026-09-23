@@ -7,40 +7,41 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Custom PatternProviderLogic for the Auto Energizing Orb.
- * Instead of pushing pattern inputs to adjacent blocks, it routes them directly
- * into the orb's own input slots (slots 1-6).
+ * PatternProviderLogic for the ME Energizing Orb.
+ *
+ * CPU talks to this object; we never forward pattern inputs to neighbours.
+ * Instead they are transactionally routed into the orb's own input slots
+ * (Mek-Energistics factory discipline — see
+ * docs/feat/调研_ME充能台_熔炼工厂架构与ExtendedAE样板页.md).
  */
 public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
 
-    private final AutoEnergizingOrbBlockEntity autoOrb;
+    private final AutoEnergizingOrbBlockEntity orb;
 
     public AutoOrbPatternProviderLogic(IManagedGridNode mainNode, AutoEnergizingOrbBlockEntity host, int patternSlots) {
         super(mainNode, host, patternSlots);
-        this.autoOrb = host;
+        this.orb = host;
     }
 
     /**
-     * CPU's only throttle. Must be true while a craft is in-flight or the
-     * product has not left the orb — otherwise the CPU double-dispatches
-     * (1 ordered → 2 produced / 10 → 56).
+     * CPU's only throttle (Mek discipline 2). Must stay true while a craft is
+     * in-flight or the product has not left the machine — otherwise the CPU
+     * double-dispatches (1 ordered → 2 produced).
      */
     @Override
     public boolean isBusy() {
         if (super.isBusy()) {
             return true;
         }
-        if (autoOrb == null || autoOrb.getLevel() == null) {
+        if (orb == null || orb.getLevel() == null) {
             return false;
         }
-        return autoOrb.containRecipe() || autoOrb.hasPendingOutput();
+        return orb.containRecipe() || orb.hasPendingOutput();
     }
 
     @Override
@@ -48,24 +49,58 @@ public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
         if (patternDetails == null || inputHolder == null) {
             return false;
         }
-        // Exact instance or same definition (encoded pattern item).
-        boolean patternMatches = getAvailablePatterns().stream()
-                .anyMatch(p -> p == patternDetails || p.getDefinition().equals(patternDetails.getDefinition()));
-        if (!patternMatches) {
+        if (!isOurPattern(patternDetails)) {
             return false;
         }
-        if (!autoOrb.getMainNode().isActive()) {
+        if (orb.getMainNode() == null || !orb.getMainNode().isActive()) {
             return false;
         }
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
-        if (isBusy()) {
+        // One job at a time.
+        if (isBusy() || orb.containRecipe() || orb.hasPendingOutput()) {
             return false;
         }
-        if (autoOrb.containRecipe() || autoOrb.hasPendingOutput()) {
-            return false;
+        return orb.acceptPatternInputs(inputHolder);
+    }
+
+    private boolean isOurPattern(IPatternDetails patternDetails) {
+        for (IPatternDetails p : getAvailablePatterns()) {
+            if (p == patternDetails) {
+                return true;
+            }
+            if (p.getDefinition() != null && p.getDefinition().equals(patternDetails.getDefinition())) {
+                return true;
+            }
         }
-        return autoOrb.acceptPatternInputs(inputHolder);
+        return false;
+    }
+
+    /** Flatten AE2 KeyCounter[] into single-item stacks (2×diamond → two stacks). */
+    static List<ItemStackSingle> flatten(KeyCounter[] inputHolder) {
+        List<ItemStackSingle> singles = new ArrayList<>();
+        if (inputHolder == null) {
+            return singles;
+        }
+        for (KeyCounter counter : inputHolder) {
+            if (counter == null || counter.isEmpty()) {
+                continue;
+            }
+            for (var entry : counter) {
+                AEKey key = entry.getKey();
+                long amount = entry.getLongValue();
+                if (!(key instanceof AEItemKey itemKey) || amount <= 0) {
+                    return null;
+                }
+                for (long n = 0; n < amount; n++) {
+                    singles.add(new ItemStackSingle(itemKey));
+                }
+            }
+        }
+        return singles;
+    }
+
+    record ItemStackSingle(AEItemKey key) {
     }
 }

@@ -41,6 +41,9 @@ public class APJeiPlugin implements IModPlugin {
                     registration.addRecipeCatalyst(new ItemStack(block.get()), POWAH_ENERGIZING));
             APCells.ME_RODS.forEach((tier, block) ->
                     registration.addRecipeCatalyst(new ItemStack(block.get()), POWAH_ENERGIZING));
+            if (APOrbs.FLUIX_ORB_ITEM != null && APOrbs.FLUIX_ORB_ITEM.isPresent()) {
+                registration.addRecipeCatalyst(new ItemStack(APOrbs.FLUIX_ORB_ITEM.get()), POWAH_ENERGIZING);
+            }
             if (APOrbs.ME_ORB_ITEM != null && APOrbs.ME_ORB_ITEM.isPresent()) {
                 registration.addRecipeCatalyst(new ItemStack(APOrbs.ME_ORB_ITEM.get()), POWAH_ENERGIZING);
             }

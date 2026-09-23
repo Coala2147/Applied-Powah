@@ -64,14 +64,14 @@ public final class AppliedPowah {
                             LOG.warn("Creative tab ME rods: {}", t.toString());
                         }
                         try {
-                            if (com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.isPresent()) {
-                                output.accept(com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.get());
+                            if (com.coala.appliedpowah.orb.APOrbs.FLUIX_ORB_ITEM.isPresent()) {
+                                output.accept(com.coala.appliedpowah.orb.APOrbs.FLUIX_ORB_ITEM.get());
                             }
                             if (com.coala.appliedpowah.orb.APOrbs.ADV_ORB_ITEM.isPresent()) {
                                 output.accept(com.coala.appliedpowah.orb.APOrbs.ADV_ORB_ITEM.get());
                             }
-                            if (com.coala.appliedpowah.orb.APOrbs.AUTO_ORB_ITEM.isPresent()) {
-                                output.accept(com.coala.appliedpowah.orb.APOrbs.AUTO_ORB_ITEM.get());
+                            if (com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.isPresent()) {
+                                output.accept(com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.get());
                             }
                         } catch (Throwable t) {
                             // powah missing — orbs unregistered

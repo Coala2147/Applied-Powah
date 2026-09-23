@@ -4,9 +4,9 @@ navigation:
   title: Energizing orbs
   position: 30
 item_ids:
-  - applied_powah:me_energizing_orb
+  - applied_powah:fluix_energizing_orb
   - applied_powah:advanced_energizing_orb
-  - applied_powah:auto_energizing_orb
+  - applied_powah:me_energizing_orb
 categories:
 - applied powah
 ---

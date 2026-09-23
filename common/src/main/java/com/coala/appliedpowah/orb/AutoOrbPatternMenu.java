@@ -7,9 +7,8 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
 
 /**
- * Auto-orb pattern menu — mirrors ExtendedAE {@code ContainerExPatternProvider}:
- * plain {@link PatternProviderMenu} + own MenuType so AE2 loads
- * {@code auto_orb_patterns.json} (BREAK_AFTER_9COLS → 4×9).
+ * ME orb pattern menu — ExtendedAE {@code ContainerExPatternProvider} clone.
+ * 36 pattern slots come from {@code logic.getPatternInv().size()} in the parent.
  */
 public class AutoOrbPatternMenu extends PatternProviderMenu {
 
@@ -17,7 +16,7 @@ public class AutoOrbPatternMenu extends PatternProviderMenu {
             .create(AutoOrbPatternMenu::new, PatternProviderLogicHost.class)
             .build("auto_orb_patterns");
 
-    protected AutoOrbPatternMenu(int id, Inventory playerInventory, PatternProviderLogicHost host) {
+    public AutoOrbPatternMenu(int id, Inventory playerInventory, PatternProviderLogicHost host) {
         super(TYPE, id, playerInventory, host);
     }
 }

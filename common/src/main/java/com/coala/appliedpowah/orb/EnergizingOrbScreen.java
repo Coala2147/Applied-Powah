@@ -23,11 +23,11 @@ import net.minecraft.world.entity.player.Inventory;
 public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMenu> {
 
     private static final ResourceLocation TEX_ME =
-            new ResourceLocation("applied_powah", "textures/gui/me_energizing_orb.png");
+            new ResourceLocation("applied_powah", "textures/gui/fluix_energizing_orb.png");
     private static final ResourceLocation TEX_ADV =
             new ResourceLocation("applied_powah", "textures/gui/advanced_energizing_orb.png");
     private static final ResourceLocation TEX_AUTO =
-            new ResourceLocation("applied_powah", "textures/gui/auto_energizing_orb.png");
+            new ResourceLocation("applied_powah", "textures/gui/me_energizing_orb.png");
     /** Own icon atlas (asset/orb/results/states.png). */
     private static final ResourceLocation TEX_STATES =
             new ResourceLocation("applied_powah", "textures/gui/states.png");

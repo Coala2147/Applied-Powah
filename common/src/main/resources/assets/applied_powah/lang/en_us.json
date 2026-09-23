@@ -20,7 +20,7 @@
   "block.applied_powah.me_energizing_rod_niotic": "ME Energizing Rod (Niotic)",
   "block.applied_powah.me_energizing_rod_spirited": "ME Energizing Rod (Spirited)",
   "block.applied_powah.me_energizing_rod_nitro": "ME Energizing Rod (Nitro)",
-  "block.applied_powah.me_energizing_orb": "Fluix Energizing Orb",
+  "block.applied_powah.fluix_energizing_orb": "Fluix Energizing Orb",
   "block.applied_powah.advanced_energizing_orb": "Advanced Energizing Orb",
   "item.applied_powah.super_dense_energy_cell": "Super Dense Energy Cell",
   "item.applied_powah.extreme_dense_energy_cell": "Extreme Dense Energy Cell",
@@ -38,7 +38,7 @@
   "item.applied_powah.me_energizing_rod_niotic": "ME Energizing Rod (Niotic)",
   "item.applied_powah.me_energizing_rod_spirited": "ME Energizing Rod (Spirited)",
   "item.applied_powah.me_energizing_rod_nitro": "ME Energizing Rod (Nitro)",
-  "item.applied_powah.me_energizing_orb": "Fluix Energizing Orb",
+  "item.applied_powah.fluix_energizing_orb": "Fluix Energizing Orb",
   "item.applied_powah.advanced_energizing_orb": "Advanced Energizing Orb",
   "applied_powah.tooltip.progress": "Progress: %s / %s (%s%%)",
   "applied_powah.gui.guide": "Open energizing orb guide",
@@ -47,7 +47,7 @@
   "applied_powah.gui.auto_export.off": "Auto-export: OFF",
   "applied_powah.gui.power_warning": "Insufficient power",
   "applied_powah.gui.power_warning_details": "Recipe ready but energy cache empty — check rods or ME network pull",
-  "block.applied_powah.auto_energizing_orb": "ME Energizing Orb",
-  "item.applied_powah.auto_energizing_orb": "ME Energizing Orb",
+  "block.applied_powah.me_energizing_orb": "ME Energizing Orb",
+  "item.applied_powah.me_energizing_orb": "ME Energizing Orb",
   "applied_powah.gui.patterns": "Patterns"
 }

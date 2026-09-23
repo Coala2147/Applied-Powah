@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "powah:energizing_orb"
+    },
+    {
+      "item": "ae2:import_bus"
+    },
+    {
+      "item": "ae2:interface"
+    },
+    {
+      "tag": "applied_powah:glass_cables"
+    }
+  ],
+  "result": {
+    "item": "applied_powah:fluix_energizing_orb"
+  },
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "powah"
+    }
+  ]
+}

@@ -1,29 +1,31 @@
 package com.coala.appliedpowah.orb;
 
 import appeng.api.config.AccessRestriction;
+import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.StorageHelper;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
-import appeng.menu.implementations.PatternProviderMenu;
+import appeng.me.helpers.MachineSource;
 import appeng.menu.locator.MenuLocator;
 import appeng.util.SettingsFrom;
-import com.coala.appliedpowah.AppliedPowah;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,45 +34,52 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * Auto Energizing Orb.
- * Advanced orb + 36 pattern slots (4x9) acting as a Pattern Provider.
- * Pattern inputs are routed directly into the orb's own input slots instead of adjacent blocks.
+ * ME Energizing Orb — registry id {@code me_energizing_orb}.
+ *
+ * <p>Body = {@link AdvancedEnergizingOrbBlockEntity} (4 rod slots, FE cache,
+ * network pull, Powah energizing recipes, shared GUI).</p>
+ *
+ * <p>Shell = AE2 {@link PatternProviderLogic} with 36 pattern slots (4×9,
+ * ExtendedAE page). CPU {@code pushPattern} feeds the orb's own input slots;
+ * products leave through a single path ({@code returnInv} → network).</p>
+ *
+ * <p>Three Mek-Energistics factory disciplines (see
+ * {@code docs/feat/调研_ME充能台_熔炼工厂架构与ExtendedAE样板页.md}):</p>
+ * <ol>
+ *   <li>Input routing is transactional — plan, then commit; never partial.</li>
+ *   <li>{@code isBusy()} is the CPU's only throttle and is truthful.</li>
+ *   <li>One product exit only — no auto-export double-count.</li>
+ * </ol>
  */
-public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity implements PatternProviderLogicHost {
+public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
+        implements PatternProviderLogicHost {
 
     public static final int PATTERN_SLOTS = 36;
 
-    private final PatternProviderLogic logic = new AutoOrbPatternProviderLogic(getMainNode(), this, PATTERN_SLOTS);
+    private final PatternProviderLogic logic =
+            new AutoOrbPatternProviderLogic(getMainNode(), this, PATTERN_SLOTS);
+    private final MachineSource machineSource = new MachineSource(this);
 
     public AutoEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
-        // PatternProviderLogic ctor overwrites IGridTickable + sets REQUIRE_CHANNEL.
-        // Reclaim the tick slot so the parent orb logic (pull / craft / export) still runs,
-        // and drop the channel requirement (orb is a plain ME device).
+        // PatternProviderLogic ctor steals IGridTickable and sets REQUIRE_CHANNEL.
+        // Take the ticker back (advanced-orb pull/complete still runs on it) and
+        // drop the channel flag — this orb is a plain ME device.
         getMainNode().setFlags();
         getMainNode().addService(IGridTickable.class, this);
     }
 
+    // ---------------------------------------------------------------------
+    // PatternProviderLogicHost
+    // ---------------------------------------------------------------------
+
     @Override
-    public void onMainNodeStateChanged(appeng.api.networking.IGridNodeListener.State reason) {
-        super.onMainNodeStateChanged(reason);
-        // PatternProviderLogic.alertDevice throws if this node is not alertable
-        // (we reclaimed IGridTickable from its Ticker). Swallow — our own
-        // tickingRequest already drains the return inventory.
-        try {
-            this.logic.onMainNodeStateChanged();
-        } catch (Throwable ignored) {
-        }
+    public PatternProviderLogic getLogic() {
+        return logic;
     }
 
     @Override
-    public void onReady() {
-        super.onReady();
-        this.logic.updatePatterns();
-    }
-
-    @Override
-    public net.minecraft.world.level.block.entity.BlockEntity getBlockEntity() {
+    public BlockEntity getBlockEntity() {
         return this;
     }
 
@@ -80,57 +89,20 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
         markForUpdate();
     }
 
-    @Override
-    public void saveAdditional(CompoundTag tag) {
-        super.saveAdditional(tag);
-        this.logic.writeToNBT(tag);
-    }
-
-    @Override
-    public void loadTag(CompoundTag tag) {
-        super.loadTag(tag);
-        this.logic.readFromNBT(tag);
-    }
-
-    @Override
-    public void addAdditionalDrops(net.minecraft.world.level.Level level, BlockPos pos, List<ItemStack> drops) {
-        super.addAdditionalDrops(level, pos, drops);
-        this.logic.addDrops(drops);
-    }
-
-    @Override
-    public void clearContent() {
-        this.logic.clearContent();
-    }
-
-    @Override
-    public int getPriority() {
-        return logic.getPriority();
-    }
-
-    @Override
-    public void setPriority(int priority) {
-        logic.setPriority(priority);
-    }
-
+    /** No side targets: original pushPattern has nowhere to send — only our path. */
     @Override
     public EnumSet<Direction> getTargets() {
         return EnumSet.noneOf(Direction.class);
     }
 
     @Override
-    public PatternProviderLogic getLogic() {
-        return logic;
-    }
-
-    @Override
-    public appeng.api.stacks.AEItemKey getTerminalIcon() {
-        return AEItemKey.of(new ItemStack(APOrbs.AUTO_ORB_ITEM.get()));
+    public AEItemKey getTerminalIcon() {
+        return AEItemKey.of(new ItemStack(APOrbs.ME_ORB_ITEM.get()));
     }
 
     @Override
     public ItemStack getMainMenuIcon() {
-        return new ItemStack(APOrbs.AUTO_ORB_ITEM.get());
+        return new ItemStack(APOrbs.ME_ORB_ITEM.get());
     }
 
     @Override
@@ -149,55 +121,115 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
         }
     }
 
-    /** Product not yet returned to the network (output slot or return inv). */
+    @Override
+    public int getPriority() {
+        return logic.getPriority();
+    }
+
+    @Override
+    public void setPriority(int priority) {
+        logic.setPriority(priority);
+    }
+
+    // ---------------------------------------------------------------------
+    // Lifecycle / NBT
+    // ---------------------------------------------------------------------
+
+    @Override
+    public void onReady() {
+        super.onReady();
+        logic.updatePatterns();
+    }
+
+    @Override
+    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+        // logic.alertDevice throws when this node is not alertable (we hold the ticker).
+        try {
+            logic.onMainNodeStateChanged();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        logic.writeToNBT(tag);
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        logic.readFromNBT(tag);
+    }
+
+    @Override
+    public void addAdditionalDrops(net.minecraft.world.level.Level level, BlockPos pos, List<ItemStack> drops) {
+        super.addAdditionalDrops(level, pos, drops);
+        logic.addDrops(drops);
+    }
+
+    @Override
+    public void clearContent() {
+        logic.clearContent();
+    }
+
+    // ---------------------------------------------------------------------
+    // CPU handshake
+    // ---------------------------------------------------------------------
+
+    /** True while a recipe is loaded or the product has not left the orb. */
     public boolean hasPendingOutput() {
         if (!inv.getStackInSlot(EnergizingOrbLogic.OUTPUT).isEmpty()) {
             return true;
         }
-        var ret = logic == null ? null : logic.getReturnInv();
+        var ret = logic.getReturnInv();
         return ret != null && !ret.isEmpty();
     }
 
-    @Override
-    public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 20, false, false);
-    }
+    /**
+     * Transactional pattern-input intake (Mek discipline 1).
+     * Plan every single into an empty input slot first; commit only if the whole
+     * batch fits. Never leave half a recipe in the machine.
+     */
+    public boolean acceptPatternInputs(KeyCounter[] inputHolder) {
+        var singles = AutoOrbPatternProviderLogic.flatten(inputHolder);
+        if (singles == null || singles.isEmpty()) {
+            return false;
+        }
 
-    @Override
-    public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        var mod = super.tickingRequest(node, ticksSinceLastCall);
-        // Pattern-provider return inventory → network (crafting CPU pickup).
-        try {
-            var ret = logic.getReturnInv();
-            if (ret != null && !ret.isEmpty() && node != null && node.isActive()) {
-                var storage = node.getGrid().getStorageService();
-                if (storage != null) {
-                    ret.injectIntoNetwork(storage.getInventory(),
-                            new appeng.me.helpers.MachineSource(this),
-                            s -> { });
-                }
+        int[] planSlot = new int[singles.size()];
+        int planned = 0;
+        for (int slot = 1; slot < EnergizingOrbLogic.SLOTS && slot < inv.getSlots() && planned < singles.size(); slot++) {
+            ItemStack probe = singles.get(planned).key().toStack(1);
+            if (inv.getStackInSlot(slot).isEmpty()
+                    && EnergizingOrbLogic.canInsertInput(inv, slot, probe)) {
+                planSlot[planned] = slot;
+                planned++;
             }
-        } catch (Throwable ignored) {
         }
-        return mod;
+        if (planned != singles.size()) {
+            return false;
+        }
+
+        boolean saved = completing;
+        completing = true;
+        try {
+            for (int i = 0; i < singles.size(); i++) {
+                inv.setStackInSlot(planSlot[i], singles.get(i).key().toStack(1));
+            }
+        } finally {
+            completing = saved;
+        }
+        checkRecipe();
+        return true;
     }
 
-    @Override
-    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
-        // Auto orb is fed ONLY by CPU pushPattern → acceptPatternInputs (direct inv writes).
-        // Do NOT expose ITEM_HANDLER: adjacent ME interfaces / pipes would stuff input
-        // slots and cause runaway overproduction (1 ordered → 2 / 10 → 56).
-        // GUI reads orb.getInv() directly (EnergizingOrbMenu), so the screen still works.
-        if (cap == net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER) {
-            return LazyOptional.empty();
-        }
-        // Do NOT forward pattern-provider GenericStackInv capabilities either
-        // (fluid tank / fake energy buffer). PatternProviderMenu reaches those
-        // through logic.getPatternInv()/getReturnInv() directly.
-        return super.getCapability(cap, side);
-    }
+    // ---------------------------------------------------------------------
+    // Product path — SINGLE exit (Mek discipline 3)
+    // ---------------------------------------------------------------------
 
-    /** Single product path: never auto-export OUTPUT to adjacent inventories. */
+    /** Adjacent-inventory auto-export is disabled. */
     @Override
     protected boolean autoExportEnabled() {
         return false;
@@ -205,29 +237,16 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
     @Override
     protected void autoExportTick(IGridNode node) {
-        // no-op — products only leave via returnInv → network
     }
 
-    /** Disable OUTPUT→ME push so returnInv is the only product path (no double count). */
+    /** OUTPUT→ME push is disabled — returnInv is the only exit. */
     @Override
     protected boolean pushOutToMe(IGridNode node) {
         return false;
     }
 
-    public void openPatternMenu(Player player, MenuLocator locator) {
-        appeng.menu.MenuOpener.open(AutoOrbPatternMenu.TYPE, player, locator);
-    }
-
-    @Override
-    public AccessRestriction getPowerFlow() {
-        return AccessRestriction.NO_ACCESS;
-    }
-
     @Override
     protected void completeIfPossible() {
-        // Single output path: result goes ONLY to the pattern-provider return
-        // inventory (CPU pickup). Never leave it in the orb output slot —
-        // auto-export would then push a second copy into the network.
         if (completing || level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
             return;
         }
@@ -251,6 +270,7 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
         completing = true;
         try {
+            // Consume one item from every filled input slot first.
             for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
                 if (!inv.getStackInSlot(i).isEmpty()) {
                     inv.extractItem(i, 1, false);
@@ -261,45 +281,7 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
             recipe = null;
             containRecipe = false;
 
-            // Hand the exact result to the return inventory — once.
-            boolean placed = false;
-            try {
-                AEItemKey key = AEItemKey.of(result);
-                if (key != null) {
-                    var ret = logic.getReturnInv();
-                    if (ret != null) {
-                        long inserted = ret.insert(key, resultCount, appeng.api.config.Actionable.MODULATE,
-                                new appeng.me.helpers.MachineSource(this));
-                        placed = inserted >= resultCount;
-                        if (inserted > 0 && inserted < resultCount) {
-                            result.shrink((int) inserted);
-                        }
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
-            if (!placed && !result.isEmpty()) {
-                // Fallback: poweredInsert straight into the ME network; only then OUTPUT slot.
-                try {
-                    var grid = getMainNode().getGrid();
-                    if (grid != null) {
-                        var storage = grid.getService(IStorageService.class);
-                        var energy = grid.getEnergyService();
-                        AEItemKey key = AEItemKey.of(result);
-                        if (storage != null && key != null) {
-                            long inserted = StorageHelper.poweredInsert(energy, storage.getInventory(),
-                                    key, result.getCount(), machineSource);
-                            if (inserted > 0) {
-                                result.shrink((int) inserted);
-                            }
-                        }
-                    }
-                } catch (Throwable ignored) {
-                }
-                if (!result.isEmpty()) {
-                    inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result);
-                }
-            }
+            emitProduct(result, resultCount);
         } finally {
             completing = false;
         }
@@ -308,61 +290,96 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     }
 
     /**
-     * Accept pattern inputs directly into the orb's input slots (slots 1-6).
-     * Transactional: simulate the full batch first, then commit — any failure
-     * leaves the orb untouched (never partially stuffed).
+     * Hand the product to the pattern return inventory (CPU pickup).
+     * Fallback: poweredInsert into the ME network. Last resort: OUTPUT slot
+     * (item is never voided; OUTPUT is not auto-exported).
      */
-    public boolean acceptPatternInputs(KeyCounter[] inputHolder) {
-        if (inputHolder == null || inputHolder.length == 0) {
-            return false;
-        }
-
-        // Flatten to singles — one stack of count 1 per item (2×diamond → 2 slots).
-        List<net.minecraft.world.item.ItemStack> singles = new ArrayList<>();
-        for (KeyCounter counter : inputHolder) {
-            if (counter == null || counter.isEmpty()) {
-                continue;
-            }
-            for (var entry : counter) {
-                AEKey key = entry.getKey();
-                long amount = entry.getLongValue();
-                if (!(key instanceof AEItemKey itemKey) || amount <= 0) {
-                    return false;
-                }
-                for (long n = 0; n < amount; n++) {
-                    singles.add(itemKey.toStack(1));
-                }
-            }
-        }
-        if (singles.isEmpty()) {
-            return false;
-        }
-
-        // Plan: map each single into an empty input slot; abort whole batch if not possible.
-        int[] planSlot = new int[singles.size()];
-        int idx = 0;
-        for (int slot = 1; slot < inv.getSlots() && slot < EnergizingOrbLogic.SLOTS && idx < singles.size(); slot++) {
-            if (inv.getStackInSlot(slot).isEmpty()
-                    && EnergizingOrbLogic.canInsertInput(inv, slot, singles.get(idx))) {
-                planSlot[idx] = slot;
-                idx++;
-            }
-        }
-        if (idx != singles.size()) {
-            return false;
-        }
-
-        // Commit under completing guard so onContentsChanged does not storm checkRecipe.
-        boolean completingSaved = completing;
-        completing = true;
+    private void emitProduct(ItemStack result, int resultCount) {
         try {
-            for (int i = 0; i < singles.size(); i++) {
-                inv.setStackInSlot(planSlot[i], singles.get(i));
+            AEItemKey key = AEItemKey.of(result);
+            var ret = logic.getReturnInv();
+            if (key != null && ret != null) {
+                long inserted = ret.insert(key, resultCount, Actionable.MODULATE, machineSource);
+                if (inserted >= resultCount) {
+                    return;
+                }
+                if (inserted > 0) {
+                    result.shrink((int) inserted);
+                }
             }
-        } finally {
-            completing = completingSaved;
+        } catch (Throwable ignored) {
         }
-        checkRecipe();
-        return true;
+        try {
+            var grid = getMainNode().getGrid();
+            if (grid != null) {
+                var storage = grid.getService(IStorageService.class);
+                var energy = grid.getEnergyService();
+                AEItemKey key = AEItemKey.of(result);
+                if (storage != null && energy != null && key != null) {
+                    long inserted = StorageHelper.poweredInsert(
+                            energy, storage.getInventory(), key, result.getCount(), machineSource);
+                    if (inserted > 0) {
+                        result.shrink((int) inserted);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        if (!result.isEmpty()) {
+            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result);
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Tick / capabilities / menu
+    // ---------------------------------------------------------------------
+
+    @Override
+    public TickingRequest getTickingRequest(IGridNode node) {
+        return new TickingRequest(1, 20, false, false);
+    }
+
+    @Override
+    public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+        TickRateModulation mod = super.tickingRequest(node, ticksSinceLastCall);
+        drainReturnInventory(node);
+        return mod;
+    }
+
+    private void drainReturnInventory(IGridNode node) {
+        try {
+            var ret = logic.getReturnInv();
+            if (ret == null || ret.isEmpty() || node == null || !node.isActive()) {
+                return;
+            }
+            var storage = node.getGrid().getService(IStorageService.class);
+            if (storage != null) {
+                ret.injectIntoNetwork(storage.getInventory(), machineSource, s -> {
+                });
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * ITEM_HANDLER is NOT exposed. CPU feeds via pushPattern → acceptPatternInputs
+     * (direct inv writes). Neighbour pipes/interfaces must not stuff input slots —
+     * that was the runaway overproduction vector. GUI reads {@code orb.getInv()}.
+     */
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+        if (cap == ForgeCapabilities.ITEM_HANDLER) {
+            return LazyOptional.empty();
+        }
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public AccessRestriction getPowerFlow() {
+        return AccessRestriction.NO_ACCESS;
+    }
+
+    public void openPatternMenu(Player player, MenuLocator locator) {
+        appeng.menu.MenuOpener.open(AutoOrbPatternMenu.TYPE, player, locator);
     }
 }
