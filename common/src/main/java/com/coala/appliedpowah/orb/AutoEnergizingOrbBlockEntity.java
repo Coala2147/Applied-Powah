@@ -2,12 +2,14 @@ package com.coala.appliedpowah.orb;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.StorageHelper;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.implementations.PatternProviderMenu;
@@ -147,6 +149,15 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
         }
     }
 
+    /** Product not yet returned to the network (output slot or return inv). */
+    public boolean hasPendingOutput() {
+        if (!inv.getStackInSlot(EnergizingOrbLogic.OUTPUT).isEmpty()) {
+            return true;
+        }
+        var ret = logic == null ? null : logic.getReturnInv();
+        return ret != null && !ret.isEmpty();
+    }
+
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
         return new TickingRequest(1, 20, false, false);
@@ -173,11 +184,34 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
     @Override
     public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
-        // Do NOT forward pattern-provider GenericStackInv capabilities.
-        // useRegisteredCapacities() exposes a 9-slot fluid tank (Jade: 36 000 mB)
-        // and a fake energy buffer. PatternProviderMenu reaches the inventories
-        // through logic.getPatternInv()/getReturnInv() directly — not via capability.
+        // Auto orb is fed ONLY by CPU pushPattern → acceptPatternInputs (direct inv writes).
+        // Do NOT expose ITEM_HANDLER: adjacent ME interfaces / pipes would stuff input
+        // slots and cause runaway overproduction (1 ordered → 2 / 10 → 56).
+        // GUI reads orb.getInv() directly (EnergizingOrbMenu), so the screen still works.
+        if (cap == net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER) {
+            return LazyOptional.empty();
+        }
+        // Do NOT forward pattern-provider GenericStackInv capabilities either
+        // (fluid tank / fake energy buffer). PatternProviderMenu reaches those
+        // through logic.getPatternInv()/getReturnInv() directly.
         return super.getCapability(cap, side);
+    }
+
+    /** Single product path: never auto-export OUTPUT to adjacent inventories. */
+    @Override
+    protected boolean autoExportEnabled() {
+        return false;
+    }
+
+    @Override
+    protected void autoExportTick(IGridNode node) {
+        // no-op — products only leave via returnInv → network
+    }
+
+    /** Disable OUTPUT→ME push so returnInv is the only product path (no double count). */
+    @Override
+    protected boolean pushOutToMe(IGridNode node) {
+        return false;
     }
 
     public void openPatternMenu(Player player, MenuLocator locator) {
@@ -228,18 +262,43 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
             containRecipe = false;
 
             // Hand the exact result to the return inventory — once.
+            boolean placed = false;
             try {
                 AEItemKey key = AEItemKey.of(result);
                 if (key != null) {
                     var ret = logic.getReturnInv();
                     if (ret != null) {
-                        ret.insert(key, resultCount, appeng.api.config.Actionable.MODULATE,
+                        long inserted = ret.insert(key, resultCount, appeng.api.config.Actionable.MODULATE,
                                 new appeng.me.helpers.MachineSource(this));
+                        placed = inserted >= resultCount;
+                        if (inserted > 0 && inserted < resultCount) {
+                            result.shrink((int) inserted);
+                        }
                     }
                 }
             } catch (Throwable ignored) {
-                // Fallback: drop into the orb output slot so the item is not voided.
-                inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result);
+            }
+            if (!placed && !result.isEmpty()) {
+                // Fallback: poweredInsert straight into the ME network; only then OUTPUT slot.
+                try {
+                    var grid = getMainNode().getGrid();
+                    if (grid != null) {
+                        var storage = grid.getService(IStorageService.class);
+                        var energy = grid.getEnergyService();
+                        AEItemKey key = AEItemKey.of(result);
+                        if (storage != null && key != null) {
+                            long inserted = StorageHelper.poweredInsert(energy, storage.getInventory(),
+                                    key, result.getCount(), machineSource);
+                            if (inserted > 0) {
+                                result.shrink((int) inserted);
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {
+                }
+                if (!result.isEmpty()) {
+                    inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result);
+                }
             }
         } finally {
             completing = false;
@@ -250,15 +309,15 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
 
     /**
      * Accept pattern inputs directly into the orb's input slots (slots 1-6).
-     * Each slot holds 1 item. Multi-count entries are split across empty slots
-     * so a 2×diamond pattern fills two slots — matches Powah energizing layout.
+     * Transactional: simulate the full batch first, then commit — any failure
+     * leaves the orb untouched (never partially stuffed).
      */
     public boolean acceptPatternInputs(KeyCounter[] inputHolder) {
         if (inputHolder == null || inputHolder.length == 0) {
             return false;
         }
 
-        // Flatten to (item, count) list — one entry per single item.
+        // Flatten to singles — one stack of count 1 per item (2×diamond → 2 slots).
         List<net.minecraft.world.item.ItemStack> singles = new ArrayList<>();
         for (KeyCounter counter : inputHolder) {
             if (counter == null || counter.isEmpty()) {
@@ -279,24 +338,31 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
             return false;
         }
 
-        // Need one empty input slot per single item.
-        int emptySlots = 0;
-        for (int i = 1; i < inv.getSlots() && i < EnergizingOrbLogic.SLOTS; i++) {
-            if (inv.getStackInSlot(i).isEmpty()) {
-                emptySlots++;
-            }
-        }
-        if (emptySlots < singles.size()) {
-            return false;
-        }
-
+        // Plan: map each single into an empty input slot; abort whole batch if not possible.
+        int[] planSlot = new int[singles.size()];
         int idx = 0;
         for (int slot = 1; slot < inv.getSlots() && slot < EnergizingOrbLogic.SLOTS && idx < singles.size(); slot++) {
-            if (inv.getStackInSlot(slot).isEmpty()) {
-                inv.setStackInSlot(slot, singles.get(idx));
+            if (inv.getStackInSlot(slot).isEmpty()
+                    && EnergizingOrbLogic.canInsertInput(inv, slot, singles.get(idx))) {
+                planSlot[idx] = slot;
                 idx++;
             }
         }
-        return idx == singles.size();
+        if (idx != singles.size()) {
+            return false;
+        }
+
+        // Commit under completing guard so onContentsChanged does not storm checkRecipe.
+        boolean completingSaved = completing;
+        completing = true;
+        try {
+            for (int i = 0; i < singles.size(); i++) {
+                inv.setStackInSlot(planSlot[i], singles.get(i));
+            }
+        } finally {
+            completing = completingSaved;
+        }
+        checkRecipe();
+        return true;
     }
 }

@@ -28,6 +28,14 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             new ResourceLocation("applied_powah", "textures/gui/advanced_energizing_orb.png");
     private static final ResourceLocation TEX_AUTO =
             new ResourceLocation("applied_powah", "textures/gui/auto_energizing_orb.png");
+    /** Own icon atlas (asset/orb/results/states.png). */
+    private static final ResourceLocation TEX_STATES =
+            new ResourceLocation("applied_powah", "textures/gui/states.png");
+    // UV in TEX_STATES (256×256)
+    private static final int ICON_CANCEL_X = 0;
+    private static final int ICON_EXPORT_ON_X = 16;
+    private static final int ICON_PATTERN_X = 32;
+    private static final int ICON_Y = 0;
 
     private static final int GUI_W = 176;
     private static final int GUI_H = 199;
@@ -171,20 +179,12 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
             g.drawString(font, "?", guideX() + 5, guideY() + 4, 0xFFFFFFFF, false);
         }
         boolean on = menu.getGuiAutoExport();
-        try {
-            (on ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF).getBlitter().dest(exportX(), exportY()).blit(g);
-        } catch (Throwable t) {
-            g.fill(exportX() + 3, exportY() + 3, exportX() + 13, exportY() + 13,
-                    on ? 0xFF00C853 : 0xFFC62828);
-        }
+        int exportU = on ? ICON_EXPORT_ON_X : ICON_CANCEL_X;
+        g.blit(TEX_STATES, exportX(), exportY(), exportU, ICON_Y, 16, 16, 256, 256);
         if (menu.isAuto()) {
             g.fill(patternX() - 1, patternY() - 1, patternX() + BTN + 1, patternY() + BTN + 1, 0xFF373737);
             g.fill(patternX(), patternY(), patternX() + BTN, patternY() + BTN, 0xFF8B8B8B);
-            try {
-                Icon.BACKGROUND_ENCODED_PATTERN.getBlitter().dest(patternX(), patternY()).blit(g);
-            } catch (Throwable t) {
-                g.drawString(font, "P", patternX() + 5, patternY() + 4, 0xFFFFFFFF, false);
-            }
+            g.blit(TEX_STATES, patternX(), patternY(), ICON_PATTERN_X, ICON_Y, 16, 16, 256, 256);
         }
     }
 

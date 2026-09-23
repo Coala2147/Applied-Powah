@@ -6,19 +6,21 @@ navigation:
 item_ids:
   - applied_powah:me_energizing_orb
   - applied_powah:advanced_energizing_orb
+  - applied_powah:auto_energizing_orb
 categories:
 - applied powah
 ---
 
 # Energizing orbs
 
-Applied Powah adds two grid-aware machines that run Powah **Energizing** recipes
-(`powah:energizing`): the **ME Energizing Orb** and the **Advanced Energizing Orb**.
+Applied Powah adds grid-aware machines that run Powah **Energizing** recipes
+(`powah:energizing`): the **Fluix Energizing Orb**, **Advanced Energizing Orb**,
+and **ME Energizing Orb** (auto / pattern-provider).
 
-Both connect to an ME network on the **bottom** face only (cable under the block).
+All connect to an ME network on the **bottom** face only (cable under the block).
 Advanced orb stores energy in a rod-defined cache and shows it in Jade.
 
-## ME Energizing Orb
+## Fluix Energizing Orb
 
 | Property | Behavior |
 |----------|----------|
@@ -30,7 +32,7 @@ Advanced orb stores energy in a rod-defined cache and shows it in Jade.
 | Rod slots | No |
 | Parallel pages | No (single 6+1 task) |
 
-ME orb is a **GUI + auto-export** machine. It must be charged by rods (or any
+Fluix orb is a **GUI + auto-export** machine. It must be charged by rods (or any
 Powah-compatible energy source) while a recipe is loaded. Without a recipe it
 accepts no energy.
 

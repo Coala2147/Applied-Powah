@@ -123,7 +123,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
     @Nullable
     protected EnergizingRecipe recipe;
     private LazyOptional<IItemHandler> itemCap = LazyOptional.empty();
-    private final MachineSource machineSource = new MachineSource(this);
+    protected final MachineSource machineSource = new MachineSource(this);
 
     public MeEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -452,7 +452,8 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         return work || exported ? TickRateModulation.URGENT : TickRateModulation.SLEEP;
     }
 
-    private boolean pushOutToMe(IGridNode node) {
+    /** Push OUTPUT slot into ME storage. Auto orb overrides to disable (single product path). */
+    protected boolean pushOutToMe(IGridNode node) {
         if (!autoExportEnabled() || node == null || !node.isActive()) {
             return false;
         }

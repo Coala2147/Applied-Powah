@@ -27,6 +27,22 @@ public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
         this.autoOrb = host;
     }
 
+    /**
+     * CPU's only throttle. Must be true while a craft is in-flight or the
+     * product has not left the orb — otherwise the CPU double-dispatches
+     * (1 ordered → 2 produced / 10 → 56).
+     */
+    @Override
+    public boolean isBusy() {
+        if (super.isBusy()) {
+            return true;
+        }
+        if (autoOrb == null || autoOrb.getLevel() == null) {
+            return false;
+        }
+        return autoOrb.containRecipe() || autoOrb.hasPendingOutput();
+    }
+
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
         if (patternDetails == null || inputHolder == null) {
@@ -44,20 +60,12 @@ public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
-        // Busy only when the in-flight sendList still has leftovers (our push
-        // consumes inputs directly into the orb, so sendList stays empty).
         if (isBusy()) {
             return false;
         }
-        // Orb already has a recipe mid-run — wait until output is taken.
-        if (autoOrb.containRecipe()) {
+        if (autoOrb.containRecipe() || autoOrb.hasPendingOutput()) {
             return false;
         }
-        boolean ok = autoOrb.acceptPatternInputs(inputHolder);
-        if (ok) {
-            // Mirror PatternProviderLogic.onPushPatternSuccess for LOCK_UNTIL_* modes.
-            // getLogic().exportSettings is not needed; lock state is owned by this logic.
-        }
-        return ok;
+        return autoOrb.acceptPatternInputs(inputHolder);
     }
 }

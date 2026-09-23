@@ -102,7 +102,28 @@ public final class APOrbs {
         BLOCK_ENTITIES.register(bus);
         MENUS.register(bus);
         bus.addListener(APOrbs::onCommonSetup);
+        bus.addListener(APOrbs::onRegisterMenuTypes);
         AppliedPowah.LOG.info("Registered AP energizing orbs");
+    }
+
+    /**
+     * MenuTypeBuilder.build only queues into AE2 InitMenuTypes; AE2 flushes that
+     * queue during its own MENU RegisterEvent (it loads first). Our TYPE is therefore
+     * never registered unless we do it here — the pattern page cannot open otherwise.
+     * Mirrors ExtendedAE EAERegistryHandler.onRegisterContainer.
+     */
+    private static void onRegisterMenuTypes(net.minecraftforge.registries.RegisterEvent event) {
+        if (!event.getRegistryKey().equals(net.minecraft.core.registries.Registries.MENU)) {
+            return;
+        }
+        try {
+            var id = appeng.core.AppEng.makeId("auto_orb_patterns");
+            var type = AutoOrbPatternMenu.TYPE;
+            net.minecraftforge.registries.ForgeRegistries.MENU_TYPES.register(id, type);
+            AppliedPowah.LOG.info("Registered menu type {}", id);
+        } catch (Throwable t) {
+            AppliedPowah.LOG.error("Failed to register auto_orb_patterns menu type", t);
+        }
     }
 
     /**
