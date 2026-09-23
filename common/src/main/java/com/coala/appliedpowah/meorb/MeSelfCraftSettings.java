@@ -1,4 +1,4 @@
-package com.coala.appliedpowah.orb;
+package com.coala.appliedpowah.meorb;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
@@ -18,45 +18,56 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * Passive / self-crafting from patterns held by this machine.
- * Ported from Mek-Energistics MePassiveCraftingDispatcher + MePassiveCraftingSettings
- * (refs/1.21.1/Mek-Energistics-main) — 1.20.1 / AE2 v15 adaptation.
- *
- * Flow: scan own patterns → plan inputs from ME storage → extract → submit to
- * machine (transactional accept). On submit failure the extract is restored.
+ * ME Energizing Orb self-craft engine.
+ * Architecture from Mek-Energistics MePassiveCraftingDispatcher + MePassiveCraftingSettings,
+ * renamed into this project (com.coala.appliedpowah.meorb).
  */
-public final class MePassiveCraft {
+public final class MeSelfCraftSettings {
 
     public static final int DEFAULT_INTERVAL_TICKS = 20;
     public static final int MIN_INTERVAL_TICKS = 1;
     public static final int MAX_INTERVAL_TICKS = 72_000;
     public static final long MAX_COPIES_PER_RUN = 64;
     public static final int MAX_PATTERN_SCAN_PER_RUN = 8;
+    private static final String TAG_BUFFER = "MeSelfCraftRecovery";
 
     private int intervalTicks = DEFAULT_INTERVAL_TICKS;
     private long multiplier = 1;
     private int countdown = DEFAULT_INTERVAL_TICKS;
     private int patternScanCursor;
     private final List<RecoveryEntry> recoveryBuffer = new ArrayList<>();
+    private int patternsScanned;
+    private int patternsRejected;
+    private int patternsRestored;
+    private int patternsSubmitted;
+    private int bufferFlushes;
 
-    private MePassiveCraft() {
-    }
-
-    public static MePassiveCraft create() {
-        return new MePassiveCraft();
+    public int intervalTicks() {
+        return intervalTicks;
     }
 
     public long multiplier() {
         return multiplier;
     }
 
-    public void set(int requestedInterval, long requestedMultiplier) {
-        intervalTicks = Math.max(MIN_INTERVAL_TICKS, Math.min(requestedInterval, MAX_INTERVAL_TICKS));
-        multiplier = Math.max(1, Math.min(requestedMultiplier, MAX_COPIES_PER_RUN));
+    public int patternScanCursor() {
+        return patternScanCursor;
+    }
+
+    public int patternScanBudget() {
+        return MAX_PATTERN_SCAN_PER_RUN;
+    }
+
+    public long cappedCopies(long requestedCopies) {
+        return Math.max(1, Math.min(requestedCopies, MAX_COPIES_PER_RUN));
+    }
+
+    public void set(int requestedIntervalTicks, long requestedMultiplier) {
+        intervalTicks = Math.max(MIN_INTERVAL_TICKS, Math.min(requestedIntervalTicks, MAX_INTERVAL_TICKS));
+        multiplier = cappedCopies(requestedMultiplier);
         countdown = intervalTicks;
     }
 
-    /** True when the next passive run should fire. */
     public boolean tick() {
         if (--countdown > 0) {
             return false;
@@ -66,33 +77,33 @@ public final class MePassiveCraft {
     }
 
     public void save(CompoundTag tag) {
-        tag.putInt("PassiveCraftInterval", intervalTicks);
-        tag.putLong("PassiveCraftMultiplier", multiplier);
-        tag.putInt("PassiveCraftScanCursor", patternScanCursor);
+        tag.putInt("MeSelfCraftInterval", intervalTicks);
+        tag.putLong("MeSelfCraftMultiplier", multiplier);
+        tag.putInt("MeSelfCraftScanCursor", patternScanCursor);
         if (recoveryBuffer.isEmpty()) {
-            tag.remove("PassiveCraftRecovery");
+            tag.remove(TAG_BUFFER);
             return;
         }
-        ListTag list = new ListTag();
-        for (RecoveryEntry e : recoveryBuffer) {
-            CompoundTag t = new CompoundTag();
-            t.put("Key", e.key().toTagGeneric());
-            t.putLong("Amount", e.amount());
-            list.add(t);
+        ListTag buffer = new ListTag();
+        for (RecoveryEntry entry : recoveryBuffer) {
+            CompoundTag entryTag = new CompoundTag();
+            entryTag.put("Key", entry.key().toTagGeneric());
+            entryTag.putLong("Amount", entry.amount());
+            buffer.add(entryTag);
         }
-        tag.put("PassiveCraftRecovery", list);
+        tag.put(TAG_BUFFER, buffer);
     }
 
     public void load(CompoundTag tag) {
-        set(tag.contains("PassiveCraftInterval") ? tag.getInt("PassiveCraftInterval") : DEFAULT_INTERVAL_TICKS,
-                tag.contains("PassiveCraftMultiplier") ? tag.getLong("PassiveCraftMultiplier") : 1);
-        patternScanCursor = tag.contains("PassiveCraftScanCursor") ? tag.getInt("PassiveCraftScanCursor") : 0;
+        set(tag.contains("MeSelfCraftInterval") ? tag.getInt("MeSelfCraftInterval") : DEFAULT_INTERVAL_TICKS,
+                tag.contains("MeSelfCraftMultiplier") ? tag.getLong("MeSelfCraftMultiplier") : 1L);
+        patternScanCursor = tag.contains("MeSelfCraftScanCursor") ? tag.getInt("MeSelfCraftScanCursor") : 0;
         recoveryBuffer.clear();
-        ListTag list = tag.getList("PassiveCraftRecovery", CompoundTag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
+        ListTag buffer = tag.getList(TAG_BUFFER, CompoundTag.TAG_COMPOUND);
+        for (int i = 0; i < buffer.size(); i++) {
             try {
-                AEKey key = AEKey.fromTagGeneric(list.getCompound(i).getCompound("Key"));
-                long amount = list.getCompound(i).getLong("Amount");
+                AEKey key = AEKey.fromTagGeneric(buffer.getCompound(i).getCompound("Key"));
+                long amount = buffer.getCompound(i).getLong("Amount");
                 if (key != null && amount > 0) {
                     recoveryBuffer.add(new RecoveryEntry(key, amount));
                 }
@@ -106,9 +117,9 @@ public final class MePassiveCraft {
             return;
         }
         for (int i = 0; i < recoveryBuffer.size(); i++) {
-            RecoveryEntry e = recoveryBuffer.get(i);
-            if (e.key().equals(key)) {
-                long merged = e.amount() > Long.MAX_VALUE - amount ? Long.MAX_VALUE : e.amount() + amount;
+            RecoveryEntry entry = recoveryBuffer.get(i);
+            if (entry.key.equals(key)) {
+                long merged = entry.amount > Long.MAX_VALUE - amount ? Long.MAX_VALUE : entry.amount + amount;
                 recoveryBuffer.set(i, new RecoveryEntry(key, merged));
                 return;
             }
@@ -122,14 +133,55 @@ public final class MePassiveCraft {
         return drained;
     }
 
+    public void beginRun() {
+        patternsScanned = 0;
+        patternsRejected = 0;
+        patternsRestored = 0;
+        patternsSubmitted = 0;
+        bufferFlushes = 0;
+    }
+
+    public void recordPatternScanned() {
+        patternsScanned++;
+    }
+
+    public void recordRejected() {
+        patternsRejected++;
+    }
+
+    public void recordRestored() {
+        patternsRestored++;
+    }
+
+    public void recordSubmitted() {
+        patternsSubmitted++;
+    }
+
+    public void recordBufferFlush() {
+        bufferFlushes++;
+    }
+
+    public void setPatternScanCursor(int cursor) {
+        patternScanCursor = Math.max(0, cursor);
+    }
+
+    public record RecoveryEntry(AEKey key, long amount) {
+        public RecoveryEntry {
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Recovery amounts must be positive");
+            }
+        }
+    }
+
     /**
-     * Mek MePassiveCraftingDispatcher.submitAvailable.
-     * Scan patterns, pull ingredients from ME storage, hand them to {@code submitter}.
+     * Scan held patterns, pull ingredients from ME storage, hand them to the machine.
+     * Failure restores the whole extract (Mek dispatcher discipline).
      */
-    public boolean submitAvailable(List<IPatternDetails> patterns, Level level,
+    public boolean submitAvailable(List<IPatternDetails> patterns, long copies, Level level,
             MEStorage storage, IActionSource source, Predicate<KeyCounter[]> submitter) {
+        beginRun();
         boolean submitted = flushRecoveryBuffer(storage, source);
-        int size = patterns.size();
+        int size = patterns == null ? 0 : patterns.size();
         if (size == 0) {
             return submitted;
         }
@@ -137,30 +189,36 @@ public final class MePassiveCraft {
         if (cursor < 0 || cursor >= size) {
             cursor = 0;
         }
-        long requested = multiplier;
+        int budget = patternScanBudget();
+        long requested = cappedCopies(copies);
         int cursorSteps = 0;
-        for (int scanned = 0; scanned < MAX_PATTERN_SCAN_PER_RUN && cursorSteps < size; scanned++) {
+        for (int scanned = 0; scanned < budget && cursorSteps < size; scanned++) {
             cursorSteps++;
             IPatternDetails pattern = patterns.get(cursor);
+            recordPatternScanned();
             KeyCounter[] inputs = plan(pattern, requested, level, storage, source);
             if (inputs == null) {
+                recordRejected();
                 cursor = advance(cursor, size);
                 continue;
             }
             KeyCounter extracted = extract(inputs, storage, source);
             if (extracted == null) {
+                recordRestored();
                 cursor = advance(cursor, size);
                 continue;
             }
             if (submitter.test(inputs)) {
                 submitted = true;
+                recordSubmitted();
                 cursor = advance(cursor, size);
                 continue;
             }
             restoreRemainder(extracted, storage, source);
+            recordRestored();
             cursor = advance(cursor, size);
         }
-        patternScanCursor = cursor;
+        setPatternScanCursor(cursor);
         return submitted;
     }
 
@@ -192,6 +250,7 @@ public final class MePassiveCraft {
             long inserted = storage.insert(entry.key(), amount, Actionable.MODULATE, source);
             if (inserted >= amount) {
                 changed = true;
+                recordBufferFlush();
             } else {
                 bufferRemainder(entry.key(), amount - inserted);
             }
@@ -257,8 +316,5 @@ public final class MePassiveCraft {
             }
         }
         return extracted;
-    }
-
-    private record RecoveryEntry(AEKey key, long amount) {
     }
 }

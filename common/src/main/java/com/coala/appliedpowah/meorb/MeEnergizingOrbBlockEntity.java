@@ -1,4 +1,4 @@
-package com.coala.appliedpowah.orb;
+package com.coala.appliedpowah.meorb;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
@@ -16,6 +16,9 @@ import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.me.helpers.MachineSource;
 import appeng.menu.locator.MenuLocator;
 import appeng.util.SettingsFrom;
+import com.coala.appliedpowah.orb.APOrbs;
+import com.coala.appliedpowah.orb.AdvancedEnergizingOrbBlockEntity;
+import com.coala.appliedpowah.orb.EnergizingOrbLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -34,47 +37,29 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * ME Energizing Orb — registry id {@code me_energizing_orb}.
- *
- * <p>Full rewrite (0.4.3): body = {@link AdvancedEnergizingOrbBlockEntity};
- * pattern shell + <b>passive self-crafting</b> ported from
- * Mek-Energistics {@code MePassiveCraftingDispatcher}
- * (refs/1.21.1/Mek-Energistics-main). Pattern page assets = ExtendedAE 1.21.1
- * {@code ex_pattern_provider}.</p>
- *
- * <p>Crafting paths:</p>
- * <ol>
- *   <li><b>Passive (样板内部自合成)</b> — every interval, pull ingredients for one
- *       of the held patterns out of the ME network and feed this orb.</li>
- *   <li><b>CPU pushPattern</b> — crafting CPU can still dispatch to this provider.</li>
- * </ol>
- * Products leave only through {@code returnInv → network} (Mek single-exit).
+ * ME 充能台 / ME Energizing Orb — 机体复用高级充能台，样板页 EAE 1.21.1，
+ * 自合成引擎照搬 Mek-Energistics（{@link MeSelfCraftSettings} / {@link MeInputRouter}，
+ * 命名空间 {@code com.coala.appliedpowah.meorb}）。
  */
-public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
+public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         implements PatternProviderLogicHost {
 
     public static final int PATTERN_SLOTS = 36;
+    public static final int CRAFT_SLOTS = 6;
 
-    private final PatternProviderLogic logic =
-            new AutoOrbPatternProviderLogic(getMainNode(), this, PATTERN_SLOTS);
-    private final MachineSource machineSource = new MachineSource(this);
-    private final MePassiveCraft passiveCraft = MePassiveCraft.create();
+    private final PatternProviderLogic patterns = new MePatternLogic(getMainNode(), this, PATTERN_SLOTS);
+    private final MeSelfCraftSettings selfCraft = new MeSelfCraftSettings();
+    private final MachineSource actionSource = new MachineSource(this);
 
-    public AutoEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+    public MeEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
-        // PatternProviderLogic steals IGridTickable + sets REQUIRE_CHANNEL.
-        // Keep our ticker (advanced pull / complete / passive craft) and drop the flag.
         getMainNode().setFlags();
         getMainNode().addService(IGridTickable.class, this);
     }
 
-    // ------------------------------------------------------------------
-    // PatternProviderLogicHost
-    // ------------------------------------------------------------------
-
     @Override
     public PatternProviderLogic getLogic() {
-        return logic;
+        return patterns;
     }
 
     @Override
@@ -104,10 +89,20 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     }
 
     @Override
+    public int getPriority() {
+        return patterns.getPriority();
+    }
+
+    @Override
+    public void setPriority(int priority) {
+        patterns.setPriority(priority);
+    }
+
+    @Override
     public void exportSettings(SettingsFrom mode, CompoundTag output, @Nullable Player player) {
         super.exportSettings(mode, output, player);
         if (mode == SettingsFrom.MEMORY_CARD) {
-            logic.exportSettings(output);
+            patterns.exportSettings(output);
         }
     }
 
@@ -115,35 +110,21 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     public void importSettings(SettingsFrom mode, CompoundTag input, @Nullable Player player) {
         super.importSettings(mode, input, player);
         if (mode == SettingsFrom.MEMORY_CARD) {
-            logic.importSettings(input, player);
+            patterns.importSettings(input, player);
         }
     }
 
     @Override
-    public int getPriority() {
-        return logic.getPriority();
-    }
-
-    @Override
-    public void setPriority(int priority) {
-        logic.setPriority(priority);
-    }
-
-    // ------------------------------------------------------------------
-    // Lifecycle / NBT
-    // ------------------------------------------------------------------
-
-    @Override
     public void onReady() {
         super.onReady();
-        logic.updatePatterns();
+        patterns.updatePatterns();
     }
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         try {
-            logic.onMainNodeStateChanged();
+            patterns.onMainNodeStateChanged();
         } catch (Throwable ignored) {
         }
     }
@@ -151,105 +132,92 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
-        logic.writeToNBT(tag);
-        passiveCraft.save(tag);
+        patterns.writeToNBT(tag);
+        selfCraft.save(tag);
     }
 
     @Override
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
-        logic.readFromNBT(tag);
-        passiveCraft.load(tag);
+        patterns.readFromNBT(tag);
+        selfCraft.load(tag);
     }
 
     @Override
     public void addAdditionalDrops(net.minecraft.world.level.Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        logic.addDrops(drops);
+        patterns.addDrops(drops);
     }
 
     @Override
     public void clearContent() {
-        logic.clearContent();
+        patterns.clearContent();
     }
 
-    // ------------------------------------------------------------------
-    // Busy / pending
-    // ------------------------------------------------------------------
+    public boolean isCrafting() {
+        return containRecipe;
+    }
 
-    public boolean hasPendingOutput() {
+    public boolean hasPendingProduct() {
         if (!inv.getStackInSlot(EnergizingOrbLogic.OUTPUT).isEmpty()) {
             return true;
         }
-        var ret = logic.getReturnInv();
+        var ret = patterns.getReturnInv();
         return ret != null && !ret.isEmpty();
     }
 
-    // ------------------------------------------------------------------
-    // Transactional input intake (Mek MePatternInputRouter.executePlan)
-    // ------------------------------------------------------------------
-
-    /**
-     * Accept pattern inputs into orb input slots 1-6 (one item per slot).
-     * Plan first, commit only if the whole batch fits — never partial.
-     */
-    public boolean acceptPatternInputs(KeyCounter[] inputHolder) {
-        List<ItemStack> singles = flattenSingles(inputHolder);
-        if (singles == null || singles.isEmpty()) {
-            return false;
-        }
-
-        int[] planSlot = new int[singles.size()];
-        int planned = 0;
-        for (int slot = 1; slot < EnergizingOrbLogic.SLOTS && slot < inv.getSlots() && planned < singles.size(); slot++) {
-            ItemStack probe = singles.get(planned);
-            if (inv.getStackInSlot(slot).isEmpty()
-                    && EnergizingOrbLogic.canInsertInput(inv, slot, probe)) {
-                planSlot[planned] = slot;
-                planned++;
-            }
-        }
-        if (planned != singles.size()) {
-            return false;
-        }
-
-        boolean saved = completing;
-        completing = true;
-        try {
-            for (int i = 0; i < singles.size(); i++) {
-                inv.setStackInSlot(planSlot[i], singles.get(i));
-            }
-        } finally {
-            completing = saved;
-        }
-        checkRecipe();
-        return true;
+    /** {@link MeInputRouter} 事务式投料。 */
+    public boolean routePatternInputs(KeyCounter[] inputHolder) {
+        return MeInputRouter.route(inputHolder, craftPorts());
     }
 
-    private static List<ItemStack> flattenSingles(KeyCounter[] inputHolder) {
-        if (inputHolder == null) {
-            return null;
-        }
-        List<ItemStack> singles = new ArrayList<>();
-        for (KeyCounter counter : inputHolder) {
-            if (counter == null || counter.isEmpty()) {
-                continue;
-            }
-            for (var entry : counter) {
-                if (!(entry.getKey() instanceof AEItemKey itemKey) || entry.getLongValue() <= 0) {
-                    return null;
+    private List<MeInputRouter.InputPort> craftPorts() {
+        List<MeInputRouter.InputPort> ports = new ArrayList<>(CRAFT_SLOTS);
+        for (int slot = 1; slot <= CRAFT_SLOTS && slot < inv.getSlots(); slot++) {
+            final int s = slot;
+            ports.add(new MeInputRouter.InputPort() {
+                @Override
+                public boolean empty() {
+                    return inv.getStackInSlot(s).isEmpty();
                 }
-                for (long n = 0; n < entry.getLongValue(); n++) {
-                    singles.add(itemKey.toStack(1));
-                }
-            }
-        }
-        return singles;
-    }
 
-    // ------------------------------------------------------------------
-    // Product path — SINGLE exit
-    // ------------------------------------------------------------------
+                @Override
+                public boolean supports(AEItemKey key) {
+                    return EnergizingOrbLogic.canInsertInput(inv, s, key.toStack(1));
+                }
+
+                @Override
+                public long insert(AEItemKey key, long amount, boolean simulate) {
+                    if (simulate) {
+                        return empty() && supports(key) ? 1 : 0;
+                    }
+                    if (!empty() || !supports(key)) {
+                        return 0;
+                    }
+                    boolean saved = completing;
+                    completing = true;
+                    try {
+                        inv.setStackInSlot(s, key.toStack(1));
+                    } finally {
+                        completing = saved;
+                    }
+                    return 1;
+                }
+
+                @Override
+                public void restore() {
+                    boolean saved = completing;
+                    completing = true;
+                    try {
+                        inv.setStackInSlot(s, ItemStack.EMPTY);
+                    } finally {
+                        completing = saved;
+                    }
+                }
+            });
+        }
+        return ports;
+    }
 
     @Override
     protected boolean autoExportEnabled() {
@@ -283,8 +251,8 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
         if (result.isEmpty()) {
             return;
         }
-        int resultCount = result.getCount();
-        if (resultCount <= 0 || resultCount > 64) {
+        int count = result.getCount();
+        if (count <= 0 || count > 64) {
             return;
         }
 
@@ -299,7 +267,7 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
             recipeEnergy = 0;
             recipe = null;
             containRecipe = false;
-            emitProduct(result, resultCount);
+            emit(result, count);
         } finally {
             completing = false;
         }
@@ -307,13 +275,13 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
         markForUpdate();
     }
 
-    private void emitProduct(ItemStack result, int resultCount) {
+    private void emit(ItemStack result, int count) {
         try {
             AEItemKey key = AEItemKey.of(result);
-            var ret = logic.getReturnInv();
+            var ret = patterns.getReturnInv();
             if (key != null && ret != null) {
-                long inserted = ret.insert(key, resultCount, Actionable.MODULATE, machineSource);
-                if (inserted >= resultCount) {
+                long inserted = ret.insert(key, count, Actionable.MODULATE, actionSource);
+                if (inserted >= count) {
                     return;
                 }
                 if (inserted > 0) {
@@ -330,7 +298,7 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
                 AEItemKey key = AEItemKey.of(result);
                 if (storage != null && energy != null && key != null) {
                     long inserted = StorageHelper.poweredInsert(
-                            energy, storage.getInventory(), key, result.getCount(), machineSource);
+                            energy, storage.getInventory(), key, result.getCount(), actionSource);
                     if (inserted > 0) {
                         result.shrink((int) inserted);
                     }
@@ -343,10 +311,6 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
         }
     }
 
-    // ------------------------------------------------------------------
-    // Tick — parent work + returnInv drain + PASSIVE self-crafting
-    // ------------------------------------------------------------------
-
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
         return new TickingRequest(1, 20, false, false);
@@ -355,39 +319,37 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
         TickRateModulation mod = super.tickingRequest(node, ticksSinceLastCall);
-        drainReturnInventory(node);
-        boolean crafted = runPassiveCraft(node);
-        return crafted ? TickRateModulation.URGENT : mod;
+        drainReturn(node);
+        if (runSelfCraft(node)) {
+            return TickRateModulation.URGENT;
+        }
+        return mod;
     }
 
-    private void drainReturnInventory(IGridNode node) {
+    private void drainReturn(IGridNode node) {
         try {
-            var ret = logic.getReturnInv();
+            var ret = patterns.getReturnInv();
             if (ret == null || ret.isEmpty() || node == null || !node.isActive()) {
                 return;
             }
             var storage = node.getGrid().getService(IStorageService.class);
             if (storage != null) {
-                ret.injectIntoNetwork(storage.getInventory(), machineSource, s -> {
+                ret.injectIntoNetwork(storage.getInventory(), actionSource, s -> {
                 });
             }
         } catch (Throwable ignored) {
         }
     }
 
-    /**
-     * 样板内部自合成 — Mek MePassiveCraftingDispatcher path.
-     * Pull ingredients for held patterns out of the ME network and feed this orb.
-     * Skips while a recipe is mid-run or the product has not left.
-     */
-    private boolean runPassiveCraft(IGridNode node) {
+    /** 样板内部自合成 — {@link MeSelfCraftSettings#submitAvailable}。 */
+    private boolean runSelfCraft(IGridNode node) {
         if (level == null || level.isClientSide || node == null || !node.isActive()) {
             return false;
         }
-        if (!passiveCraft.tick()) {
+        if (!selfCraft.tick()) {
             return false;
         }
-        if (containRecipe || hasPendingOutput() || completing) {
+        if (containRecipe || hasPendingProduct() || completing) {
             return false;
         }
         try {
@@ -395,21 +357,20 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
             if (storage == null) {
                 return false;
             }
-            var patterns = logic.getAvailablePatterns();
-            return passiveCraft.submitAvailable(patterns, level, storage.getInventory(), machineSource,
-                    this::acceptPatternInputs);
+            return selfCraft.submitAvailable(
+                    patterns.getAvailablePatterns(),
+                    selfCraft.multiplier(),
+                    level,
+                    storage.getInventory(),
+                    actionSource,
+                    this::routePatternInputs);
         } catch (Throwable ignored) {
             return false;
         }
     }
 
-    // ------------------------------------------------------------------
-    // Capabilities / menu
-    // ------------------------------------------------------------------
-
     @Override
     public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
-        // Never expose ITEM_HANDLER — neighbour pipes would stuff inputs (overproduction).
         if (cap == ForgeCapabilities.ITEM_HANDLER) {
             return LazyOptional.empty();
         }
@@ -422,6 +383,6 @@ public class AutoEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEnti
     }
 
     public void openPatternMenu(Player player, MenuLocator locator) {
-        appeng.menu.MenuOpener.open(AutoOrbPatternMenu.TYPE, player, locator);
+        appeng.menu.MenuOpener.open(MePatternMenu.TYPE, player, locator);
     }
 }

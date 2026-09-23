@@ -1,4 +1,4 @@
-package com.coala.appliedpowah.orb;
+package com.coala.appliedpowah.meorb;
 
 import appeng.api.config.LockCraftingMode;
 import appeng.api.crafting.IPatternDetails;
@@ -7,18 +7,15 @@ import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 
 /**
- * PatternProviderLogic for the ME Energizing Orb.
- * CPU dispatch + truthful isBusy throttle. Input intake is transactional
- * (see {@link AutoEnergizingOrbBlockEntity#acceptPatternInputs}).
- * Passive self-crafting lives on the BE (Mek MePassiveCraftingDispatcher).
+ * ME 充能台样板仓 + CPU 握手（EAE 1.21.1 样板页）。
  */
-public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
+public class MePatternLogic extends PatternProviderLogic {
 
-    private final AutoEnergizingOrbBlockEntity orb;
+    private final MeEnergizingOrbBlockEntity meOrb;
 
-    public AutoOrbPatternProviderLogic(IManagedGridNode mainNode, AutoEnergizingOrbBlockEntity host, int patternSlots) {
+    public MePatternLogic(IManagedGridNode mainNode, MeEnergizingOrbBlockEntity host, int patternSlots) {
         super(mainNode, host, patternSlots);
-        this.orb = host;
+        this.meOrb = host;
     }
 
     @Override
@@ -26,10 +23,10 @@ public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
         if (super.isBusy()) {
             return true;
         }
-        if (orb == null || orb.getLevel() == null) {
+        if (meOrb == null || meOrb.getLevel() == null) {
             return false;
         }
-        return orb.containRecipe() || orb.hasPendingOutput();
+        return meOrb.isCrafting() || meOrb.hasPendingProduct();
     }
 
     @Override
@@ -37,22 +34,22 @@ public class AutoOrbPatternProviderLogic extends PatternProviderLogic {
         if (patternDetails == null || inputHolder == null) {
             return false;
         }
-        if (!isOurPattern(patternDetails)) {
+        if (!holdsPattern(patternDetails)) {
             return false;
         }
-        if (orb.getMainNode() == null || !orb.getMainNode().isActive()) {
+        if (meOrb.getMainNode() == null || !meOrb.getMainNode().isActive()) {
             return false;
         }
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
-        if (isBusy() || orb.containRecipe() || orb.hasPendingOutput()) {
+        if (isBusy()) {
             return false;
         }
-        return orb.acceptPatternInputs(inputHolder);
+        return meOrb.routePatternInputs(inputHolder);
     }
 
-    private boolean isOurPattern(IPatternDetails patternDetails) {
+    private boolean holdsPattern(IPatternDetails patternDetails) {
         for (IPatternDetails p : getAvailablePatterns()) {
             if (p == patternDetails) {
                 return true;

@@ -17,9 +17,9 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>0.4.0 registry ids:</p>
  * <ul>
- *   <li>{@code fluix_energizing_orb} — simple rod-fed orb (was {@code me_energizing_orb})</li>
- *   <li>{@code advanced_energizing_orb} — rod cache orb (unchanged)</li>
- *   <li>{@code me_energizing_orb} — pattern-provider ME orb (was {@code auto_energizing_orb})</li>
+ *   <li>{@code fluix_energizing_orb} 鈥?simple rod-fed orb (was {@code me_energizing_orb})</li>
+ *   <li>{@code advanced_energizing_orb} 鈥?rod cache orb (unchanged)</li>
+ *   <li>{@code me_energizing_orb} 鈥?pattern-provider ME orb (was {@code auto_energizing_orb})</li>
  * </ul>
  */
 public final class APOrbs {
@@ -32,19 +32,19 @@ public final class APOrbs {
     public static final DeferredRegister<net.minecraft.world.inventory.MenuType<?>> MENUS =
             DeferredRegister.create(ForgeRegistries.MENU_TYPES, AppliedPowah.MOD_ID);
 
-    private static final AtomicReference<BlockEntityType<MeEnergizingOrbBlockEntity>> FLUIX_TYPE_REF =
+    private static final AtomicReference<BlockEntityType<EnergizingOrbBlockEntity>> FLUIX_TYPE_REF =
             new AtomicReference<>();
     private static final AtomicReference<BlockEntityType<AdvancedEnergizingOrbBlockEntity>> ADV_TYPE_REF =
             new AtomicReference<>();
-    private static final AtomicReference<BlockEntityType<AutoEnergizingOrbBlockEntity>> ME_TYPE_REF =
+    private static final AtomicReference<BlockEntityType<com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity>> ME_TYPE_REF =
             new AtomicReference<>();
 
     public static final RegistryObject<Block> FLUIX_ORB = BLOCKS.register(
-            "fluix_energizing_orb", MeEnergizingOrbBlock::new);
+            "fluix_energizing_orb", FluixEnergizingOrbBlock::new);
     public static final RegistryObject<Block> ADV_ORB = BLOCKS.register(
             "advanced_energizing_orb", AdvancedEnergizingOrbBlock::new);
     public static final RegistryObject<Block> ME_ORB = BLOCKS.register(
-            "me_energizing_orb", AutoEnergizingOrbBlock::new);
+            "me_energizing_orb", com.coala.appliedpowah.meorb.MeEnergizingOrbBlock::new);
 
     public static final RegistryObject<Item> FLUIX_ORB_ITEM = ITEMS.register(
             "fluix_energizing_orb", () -> new BlockItem(FLUIX_ORB.get(), new Item.Properties()));
@@ -55,8 +55,8 @@ public final class APOrbs {
 
     public static final RegistryObject<BlockEntityType<?>> FLUIX_ORB_TYPE =
             BLOCK_ENTITIES.register("fluix_energizing_orb", () -> {
-                BlockEntityType<MeEnergizingOrbBlockEntity> type = BlockEntityType.Builder
-                        .of((pos, state) -> new MeEnergizingOrbBlockEntity(FLUIX_TYPE_REF.get(), pos, state),
+                BlockEntityType<EnergizingOrbBlockEntity> type = BlockEntityType.Builder
+                        .of((pos, state) -> new EnergizingOrbBlockEntity(FLUIX_TYPE_REF.get(), pos, state),
                                 FLUIX_ORB.get())
                         .build(null);
                 FLUIX_TYPE_REF.set(type);
@@ -75,8 +75,8 @@ public final class APOrbs {
 
     public static final RegistryObject<BlockEntityType<?>> ME_ORB_TYPE =
             BLOCK_ENTITIES.register("me_energizing_orb", () -> {
-                BlockEntityType<AutoEnergizingOrbBlockEntity> type = BlockEntityType.Builder
-                        .of((pos, state) -> new AutoEnergizingOrbBlockEntity(ME_TYPE_REF.get(), pos, state),
+                BlockEntityType<com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity> type = BlockEntityType.Builder
+                        .of((pos, state) -> new com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity(ME_TYPE_REF.get(), pos, state),
                                 ME_ORB.get())
                         .build(null);
                 ME_TYPE_REF.set(type);
@@ -84,8 +84,8 @@ public final class APOrbs {
             });
 
     @SuppressWarnings("unchecked")
-    public static BlockEntityType<MeEnergizingOrbBlockEntity> fluixType() {
-        return (BlockEntityType<MeEnergizingOrbBlockEntity>) (BlockEntityType<?>) FLUIX_TYPE_REF.get();
+    public static BlockEntityType<EnergizingOrbBlockEntity> fluixType() {
+        return (BlockEntityType<EnergizingOrbBlockEntity>) (BlockEntityType<?>) FLUIX_TYPE_REF.get();
     }
 
     @SuppressWarnings("unchecked")
@@ -94,8 +94,8 @@ public final class APOrbs {
     }
 
     @SuppressWarnings("unchecked")
-    public static BlockEntityType<AutoEnergizingOrbBlockEntity> meType() {
-        return (BlockEntityType<AutoEnergizingOrbBlockEntity>) (BlockEntityType<?>) ME_TYPE_REF.get();
+    public static BlockEntityType<com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity> meType() {
+        return (BlockEntityType<com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity>) (BlockEntityType<?>) ME_TYPE_REF.get();
     }
 
     public static final RegistryObject<net.minecraft.world.inventory.MenuType<EnergizingOrbMenu>> ORB_MENU =
@@ -119,7 +119,7 @@ public final class APOrbs {
 
     /**
      * MenuTypeBuilder.build only queues into AE2 InitMenuTypes. AE2 (loads first)
-     * flushes that queue during its own MENU RegisterEvent — before our TYPE
+     * flushes that queue during its own MENU RegisterEvent 鈥?before our TYPE
      * exists. Mirror ExtendedAE and register explicitly here, otherwise the
      * pattern page cannot open.
      */
@@ -128,18 +128,18 @@ public final class APOrbs {
             return;
         }
         try {
-            var id = appeng.core.AppEng.makeId("auto_orb_patterns");
-            var type = AutoOrbPatternMenu.TYPE;
+            var id = appeng.core.AppEng.makeId("me_energizing_orb_patterns");
+            var type = com.coala.appliedpowah.meorb.MePatternMenu.TYPE;
             ForgeRegistries.MENU_TYPES.register(id, type);
             AppliedPowah.LOG.info("Registered menu type {}", id);
         } catch (Throwable t) {
-            AppliedPowah.LOG.error("Failed to register auto_orb_patterns menu type", t);
+            AppliedPowah.LOG.error("Failed to register me_energizing_orb_patterns menu type", t);
         }
     }
 
     /**
-     * 0.4.0 id migration: old {@code auto_energizing_orb} → new {@code me_energizing_orb}.
-     * (Old {@code me_energizing_orb} now resolves to the new ME orb — intentional
+     * 0.4.0 id migration: old {@code auto_energizing_orb} 鈫?new {@code me_energizing_orb}.
+     * (Old {@code me_energizing_orb} now resolves to the new ME orb 鈥?intentional
      * breaking change of this major rename; recreate Fluix orbs if needed.)
      */
     private static void onMissingMappings(
@@ -183,7 +183,7 @@ public final class APOrbs {
             try {
                 @SuppressWarnings({"unchecked", "rawtypes"})
                 appeng.block.AEBaseEntityBlock fluixBlock = (appeng.block.AEBaseEntityBlock) FLUIX_ORB.get();
-                fluixBlock.setBlockEntity(MeEnergizingOrbBlockEntity.class, fluixType(), null, null);
+                fluixBlock.setBlockEntity(EnergizingOrbBlockEntity.class, fluixType(), null, null);
 
                 @SuppressWarnings({"unchecked", "rawtypes"})
                 appeng.block.AEBaseEntityBlock advBlock = (appeng.block.AEBaseEntityBlock) ADV_ORB.get();
@@ -191,7 +191,7 @@ public final class APOrbs {
 
                 @SuppressWarnings({"unchecked", "rawtypes"})
                 appeng.block.AEBaseEntityBlock meBlock = (appeng.block.AEBaseEntityBlock) ME_ORB.get();
-                meBlock.setBlockEntity(AutoEnergizingOrbBlockEntity.class, meType(), null, null);
+                meBlock.setBlockEntity(com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity.class, meType(), null, null);
 
                 AppliedPowah.LOG.info("Bound orb block entities to AEBaseEntityBlock");
             } catch (Throwable t) {

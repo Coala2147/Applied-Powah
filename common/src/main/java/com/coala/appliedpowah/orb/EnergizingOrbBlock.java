@@ -41,14 +41,14 @@ import static net.minecraft.world.phys.shapes.Shapes.join;
  * AP energizing orb. Default FACING=DOWN (base on the ground, like Powah).
  * ME network connects on DOWN only. Collision = Powah orb (bowl + base plate).
  */
-public abstract class EnergizingOrbBlock<T extends MeEnergizingOrbBlockEntity> extends AEBaseEntityBlock<T> {
+public abstract class EnergizingOrbBlock<T extends EnergizingOrbBlockEntity> extends AEBaseEntityBlock<T> {
 
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
 
     private static final Map<Direction, VoxelShape> SHAPES = new EnumMap<>(Direction.class);
 
     static {
-        // Base plate + bowl (min<=max). DOWN = base at y0, bowl above — matches Powah.
+        // Base plate + bowl (min<=max). DOWN = base at y0, bowl above 鈥?matches Powah.
         SHAPES.put(Direction.DOWN, join(
                 box(3.5, 5.0, 3.5, 12.5, 14.23, 12.5),
                 box(2.5, 0.0, 2.5, 13.5, 1.0, 13.5),
@@ -115,7 +115,7 @@ public abstract class EnergizingOrbBlock<T extends MeEnergizingOrbBlockEntity> e
                 return InteractionResult.SUCCESS;
             }
             BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof MeEnergizingOrbBlockEntity orb) {
+            if (be instanceof EnergizingOrbBlockEntity orb) {
                 // Advanced orb does not accept rod links (it has rod slots + network pull)
                 if (orb instanceof AdvancedEnergizingOrbBlockEntity) {
                     player.displayClientMessage(Component.translatable("chat.powah.wrench.link.fail").withStyle(ChatFormatting.RED), true);
@@ -146,7 +146,7 @@ public abstract class EnergizingOrbBlock<T extends MeEnergizingOrbBlockEntity> e
             return InteractionResult.SUCCESS;
         }
         BlockEntity be = level.getBlockEntity(pos);
-        if (be instanceof MeEnergizingOrbBlockEntity orb && player instanceof ServerPlayer sp) {
+        if (be instanceof EnergizingOrbBlockEntity orb && player instanceof ServerPlayer sp) {
             NetworkHooks.openScreen(sp, new net.minecraft.world.MenuProvider() {
                 @Override
                 public Component getDisplayName() {
@@ -187,7 +187,7 @@ public abstract class EnergizingOrbBlock<T extends MeEnergizingOrbBlockEntity> e
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (!state.is(newState.getBlock()) && !level.isClientSide
-                && level.getBlockEntity(pos) instanceof MeEnergizingOrbBlockEntity orb) {
+                && level.getBlockEntity(pos) instanceof EnergizingOrbBlockEntity orb) {
             dropAll(level, pos, orb.getInv());
             if (orb instanceof AdvancedEnergizingOrbBlockEntity adv) {
                 dropAll(level, pos, adv.getRodInv());

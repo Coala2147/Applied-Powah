@@ -1,6 +1,6 @@
 package com.coala.appliedpowah.network;
 
-import com.coala.appliedpowah.orb.AutoEnergizingOrbBlockEntity;
+import com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,7 +9,7 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-/** C2S: open Pattern Provider menu for Auto Energizing Orb. */
+/** C2S: open Pattern Provider menu for ME Energizing Orb. */
 public record C2SOpenPatternMenu(BlockPos pos) {
 
     public static void encode(C2SOpenPatternMenu msg, FriendlyByteBuf buf) {
@@ -31,8 +31,8 @@ public record C2SOpenPatternMenu(BlockPos pos) {
                 return;
             }
             BlockEntity be = player.level().getBlockEntity(msg.pos);
-            if (be instanceof AutoEnergizingOrbBlockEntity auto) {
-                auto.openPatternMenu(player, appeng.menu.locator.MenuLocators.forBlockEntity(auto));
+            if (be instanceof MeEnergizingOrbBlockEntity meOrb) {
+                meOrb.openPatternMenu(player, appeng.menu.locator.MenuLocators.forBlockEntity(meOrb));
             }
         });
         context.setPacketHandled(true);

@@ -48,7 +48,7 @@ import java.util.Set;
  * re-enter completeIfPossible via onContentsChanged → checkRecipe
  * (that path produced 1→64 stacks).
  */
-public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
+public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         implements IGridTickable, EnergyAcceptingOrb, IAEPowerStorage {
 
     public static final String NBT_EXPORT = "ap_orb_auto_export";
@@ -125,7 +125,7 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
     private LazyOptional<IItemHandler> itemCap = LazyOptional.empty();
     protected final MachineSource machineSource = new MachineSource(this);
 
-    public MeEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+    public EnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
         getMainNode()
                 .setIdlePowerUsage(0)
@@ -549,3 +549,4 @@ public class MeEnergizingOrbBlockEntity extends AENetworkBlockEntity
         itemCap.invalidate();
     }
 }
+

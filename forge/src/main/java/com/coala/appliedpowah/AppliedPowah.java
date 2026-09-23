@@ -74,7 +74,7 @@ public final class AppliedPowah {
                                 output.accept(com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.get());
                             }
                         } catch (Throwable t) {
-                            // powah missing — orbs unregistered
+                            // powah missing 鈥?orbs unregistered
                         }
                     })
                     .build());
@@ -88,12 +88,12 @@ public final class AppliedPowah {
         boolean ae2 = isLoaded("ae2");
         boolean powah = isLoaded("powah");
         boolean appflux = isLoaded("appflux");
-        LOG.info("Applied Powah loading — ae2={}, powah={}, appflux={}", ae2, powah, appflux);
+        LOG.info("Applied Powah loading 鈥?ae2={}, powah={}, appflux={}", ae2, powah, appflux);
 
         if (ae2) {
             Ae2Bridge.init(bus, powah, appflux);
         } else {
-            LOG.error("AE2 not present — nothing will register.");
+            LOG.error("AE2 not present 鈥?nothing will register.");
         }
         com.coala.appliedpowah.network.APNetwork.register();
     }
@@ -122,9 +122,9 @@ public final class AppliedPowah {
             try {
                 // Mirrors ExtendedAE: InitScreens ties MenuType to a ScreenStyle JSON.
                 appeng.init.client.InitScreens.register(
-                        com.coala.appliedpowah.orb.AutoOrbPatternMenu.TYPE,
-                        com.coala.appliedpowah.orb.AutoOrbPatternScreen::new,
-                        "/screens/auto_orb_patterns.json");
+                        com.coala.appliedpowah.meorb.MePatternMenu.TYPE,
+                        com.coala.appliedpowah.meorb.MePatternScreen::new,
+                        "/screens/me_energizing_orb_patterns.json");
                 LOG.info("Registered auto orb pattern screen (4x9 Ex-Provider layout)");
             } catch (Throwable t) {
                 LOG.warn("Auto orb pattern screen not registered: {}", t.toString());

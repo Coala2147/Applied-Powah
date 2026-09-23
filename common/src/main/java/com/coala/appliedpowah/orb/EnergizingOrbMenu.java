@@ -16,29 +16,28 @@ import net.minecraftforge.items.SlotItemHandler;
 /**
  * 6+1 task slots; Advanced orb adds 4 rod slots. Output is read-only for players.
  *
- * Client GUI must read progress / warning / autoExport from DataSlots —
- * the client BlockEntity is not guaranteed to carry live buffer values.
+ * Client GUI must read progress / warning / autoExport from DataSlots 鈥? * the client BlockEntity is not guaranteed to carry live buffer values.
  */
 public class EnergizingOrbMenu extends AbstractContainerMenu {
 
-    private final MeEnergizingOrbBlockEntity orb;
+    private final EnergizingOrbBlockEntity orb;
     private final ContainerLevelAccess access;
     private final int orbSlots;
 
-    // Synced to client via DataSlot (server get() → client set())
+    // Synced to client via DataSlot (server get() 鈫?client set())
     private int syncProgress;
     private int syncRecipeEnergy;
     private int syncAutoExport;
     private int syncAdvEnergy;
     private int syncAdvCapacity;
 
-    public EnergizingOrbMenu(int id, Inventory playerInv, MeEnergizingOrbBlockEntity orb) {
+    public EnergizingOrbMenu(int id, Inventory playerInv, EnergizingOrbBlockEntity orb) {
         super(APOrbs.ORB_MENU.get(), id);
         this.orb = orb;
         this.access = ContainerLevelAccess.create(orb.getLevel(), orb.getBlockPos());
         ItemStackHandler inv = orb.getInv();
         boolean adv = orb instanceof AdvancedEnergizingOrbBlockEntity;
-        // Output slot (centered in 26×26 output area) — shifted +1,+1 per user spec
+        // Output slot (centered in 26脳26 output area) 鈥?shifted +1,+1 per user spec
         int outX = adv ? 113 : 124;
         int outY = 48;
         this.addSlot(new SlotItemHandler(inv, 0, outX, outY) {
@@ -47,7 +46,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
                 return false;
             }
         });
-        // Input slots (2×3 grid) — shifted +1,+1
+        // Input slots (2脳3 grid) 鈥?shifted +1,+1
         int[][] in = adv
                 ? new int[][]{{14, 30}, {32, 30}, {32, 48}, {14, 48}, {14, 66}, {32, 66}}
                 : new int[][]{{25, 30}, {43, 30}, {43, 48}, {25, 48}, {25, 66}, {43, 66}};
@@ -70,7 +69,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             count += AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
         }
         this.orbSlots = count;
-        // Player inventory — shifted +1,+1 from YAML spec
+        // Player inventory 鈥?shifted +1,+1 from YAML spec
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 this.addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18, 115 + row * 18));
@@ -80,7 +79,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             this.addSlot(new Slot(playerInv, col, 8 + col * 18, 173));
         }
 
-        // Live GUI sync — progress bar animates every tick these change
+        // Live GUI sync 鈥?progress bar animates every tick these change
         this.addDataSlot(new DataSlot() {
             @Override
             public int get() {
@@ -142,7 +141,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         BlockPos pos = buf.readBlockPos();
         net.minecraft.world.level.Level level = inv.player.getCommandSenderWorld();
         BlockEntity be = level.getBlockEntity(pos);
-        if (be instanceof MeEnergizingOrbBlockEntity orb) {
+        if (be instanceof EnergizingOrbBlockEntity orb) {
             return new EnergizingOrbMenu(id, inv, orb);
         }
         throw new IllegalStateException("Energizing orb missing at " + pos);
@@ -178,7 +177,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
     }
 
     public boolean isAuto() {
-        return orb instanceof AutoEnergizingOrbBlockEntity;
+        return orb instanceof com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity;
     }
 
     @Override
@@ -209,7 +208,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
         return orb != null && stillValid(access, player, orb.getBlockState().getBlock());
     }
 
-    public MeEnergizingOrbBlockEntity getOrb() {
+    public EnergizingOrbBlockEntity getOrb() {
         return orb;
     }
 }

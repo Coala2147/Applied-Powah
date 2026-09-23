@@ -1,6 +1,6 @@
 package com.coala.appliedpowah.network;
 
-import com.coala.appliedpowah.orb.MeEnergizingOrbBlockEntity;
+import com.coala.appliedpowah.orb.EnergizingOrbBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,7 +31,7 @@ public record C2SToggleAutoExport(BlockPos pos) {
                 return;
             }
             BlockEntity be = player.level().getBlockEntity(msg.pos);
-            if (be instanceof MeEnergizingOrbBlockEntity orb) {
+            if (be instanceof EnergizingOrbBlockEntity orb) {
                 orb.toggleAutoExport();
             }
         });
