@@ -7,8 +7,8 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
 
 /**
- * ME orb pattern menu — ExtendedAE {@code ContainerExPatternProvider} clone.
- * 36 pattern slots come from {@code logic.getPatternInv().size()} in the parent.
+ * ME orb pattern menu — ExtendedAE 1.21.1 ContainerExPatternProvider clone.
+ * Style JSON / texture copied from EAE 1.21.1 ex_pattern_provider.
  */
 public class AutoOrbPatternMenu extends PatternProviderMenu {
 
