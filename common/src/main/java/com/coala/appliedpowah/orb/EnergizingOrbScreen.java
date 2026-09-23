@@ -103,13 +103,14 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         return mx >= x && mx < x + BTN && my >= y && my < y + BTN;
     }
 
-    // Layout helpers — ME vs Advanced differ per latest JSON specs (+1,+1 shift)
+    // Layout helpers — with-4-block (Advanced/ME) vs without-4-block (Fluix)
+    // Exact coords from 最新with-4-block.json / 最新without-4-block.json「进度条（GUI内）」
     private int progX() {
-        return menu.isAdvanced() ? 136 : 147;
+        return menu.isAdvanced() ? 135 : 146;
     }
 
     private int progY() {
-        return 48;
+        return 47;
     }
 
     private boolean hoverProgress(int mx, int my) {

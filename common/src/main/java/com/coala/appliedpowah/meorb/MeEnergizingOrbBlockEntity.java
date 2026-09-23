@@ -254,6 +254,7 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     /**
      * CPU settlement: returnInv first (AE2 PatternProvider protocol), remainder
      * via provider return / OUTPUT. Never overwrite OUTPUT.
+     * Empty leftover after returnInv means success.
      */
     @Override
     protected boolean canSettleResult(ItemStack result) {
@@ -271,22 +272,24 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     protected void settleResult(ItemStack result) {
         if (!inputFromCpuOrder) {
             super.settleResult(result);
-            providerReturnSide = null;
             return;
         }
         inputFromCpuOrder = false;
-        ItemStack rest = doCpuReturn(result);
-        if (!rest.isEmpty()) {
-            rest = providerReturnSide != null ? doProviderReturn(rest) : rest;
+        try {
+            ItemStack rest = doCpuReturn(result);
+            if (!rest.isEmpty()) {
+                rest = providerReturnSide != null ? doProviderReturn(rest) : rest;
+            }
+            if (!rest.isEmpty() && !tryPlaceResult(rest)) {
+                AppliedPowah.LOG.error(
+                        "ME orb settle lost product {} x{} at {} (cpu return incomplete)",
+                        rest.getItem(), rest.getCount(), worldPosition);
+                net.minecraft.world.Containers.dropItemStack(
+                        level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), rest);
+            }
+        } finally {
+            providerReturnSide = null;
         }
-        if (!rest.isEmpty() && !tryPlaceResult(rest)) {
-            AppliedPowah.LOG.error(
-                    "ME orb settle lost product {} x{} at {} (cpu return incomplete)",
-                    rest.getItem(), rest.getCount(), worldPosition);
-            net.minecraft.world.Containers.dropItemStack(
-                    level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), rest);
-        }
-        providerReturnSide = null;
     }
 
     private ItemStack simulateCpuReturn(ItemStack result) {

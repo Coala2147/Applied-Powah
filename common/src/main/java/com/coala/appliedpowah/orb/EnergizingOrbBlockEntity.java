@@ -282,55 +282,55 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     /**
      * Whether {@link #settleResult} can take the whole stack without dropping items.
-     * Default: OUTPUT only. ME overrides to try returnInv first.
+     * Default: provider return first, then OUTPUT. ME overrides to try returnInv first.
+     * Empty leftover after return sinks means success (do not demand OUTPUT space).
      */
     protected boolean canSettleResult(ItemStack result) {
         if (result == null || result.isEmpty()) {
             return false;
         }
         ItemStack afterReturn = simulateProviderReturn(result);
-        return canPlaceResult(afterReturn);
+        boolean sinkTakesAll = afterReturn.isEmpty();
+        boolean outputOk = !sinkTakesAll && canPlaceResult(afterReturn);
+        return OrbResultRules.canSettle(sinkTakesAll, outputOk);
     }
 
     /**
-     * Place result: CPU returnInv / provider return first, remainder to OUTPUT.
+     * Place result: provider return first, remainder to OUTPUT.
      * Must only be called after {@link #canSettleResult} returned true.
      */
     protected void settleResult(ItemStack result) {
-        if (result == null || result.isEmpty()) {
-            return;
-        }
-        ItemStack rest = providerReturnSide != null ? doProviderReturn(result) : result;
-        if (!rest.isEmpty() && !tryPlaceResult(rest)) {
-            AppliedPowah.LOG.error("Orb settle lost product {} x{} at {}", rest.getItem(), rest.getCount(), worldPosition);
-            Containers_drop(rest);
+        try {
+            if (result == null || result.isEmpty()) {
+                return;
+            }
+            ItemStack rest = providerReturnSide != null ? doProviderReturn(result) : result;
+            if (!rest.isEmpty() && !tryPlaceResult(rest)) {
+                AppliedPowah.LOG.error("Orb settle lost product {} x{} at {}", rest.getItem(), rest.getCount(), worldPosition);
+                Containers_drop(rest);
+            }
+        } finally {
+            // One-shot for the ICraftingMachine push that set this side.
+            providerReturnSide = null;
         }
     }
 
-    /** Simulate provider return remainder (does not mutate). */
+    /** Simulate provider return remainder (must not mutate any inventory). */
     protected ItemStack simulateProviderReturn(ItemStack result) {
-        if (providerReturnSide == null || level == null || result.isEmpty()) {
-            return result;
-        }
-        try {
-            BlockEntity te = level.getBlockEntity(worldPosition.relative(providerReturnSide));
-            if (te == null) {
-                return result;
-            }
-            var adaptor = InternalInventory.wrapExternal(te, providerReturnSide.getOpposite());
-            if (adaptor == null) {
-                return result;
-            }
-            ItemStack probe = result.copy();
-            return adaptor.addItems(probe);
-        } catch (Exception e) {
-            AppliedPowah.LOG.debug("simulateProviderReturn failed at {}: {}", worldPosition, e.toString());
-            return result;
-        }
+        return providerReturn(result, Actionable.SIMULATE);
     }
 
     /** Push toward the PatternProvider that issued the set (assembler pushTo). @return leftover */
     protected ItemStack doProviderReturn(ItemStack result) {
+        return providerReturn(result, Actionable.MODULATE);
+    }
+
+    /**
+     * Settle into the adjacent PatternProvider returnInv (GENERIC_INTERNAL_INV) or a
+     * plain ITEM_HANDLER. {@code mode} must be SIMULATE when only probing capacity —
+     * a real insert here would duplicate products and skip input consumption.
+     */
+    private ItemStack providerReturn(ItemStack result, Actionable mode) {
         if (providerReturnSide == null || level == null || result.isEmpty()) {
             return result;
         }
@@ -339,13 +339,29 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
             if (te == null) {
                 return result;
             }
-            var adaptor = InternalInventory.wrapExternal(te, providerReturnSide.getOpposite());
+            Direction side = providerReturnSide.getOpposite();
+            AEItemKey key = AEItemKey.of(result);
+            var generic = te.getCapability(Capabilities.GENERIC_INTERNAL_INV, side).orElse(null);
+            if (generic != null && key != null && generic.canInsert()) {
+                long remaining = result.getCount();
+                for (int i = 0; i < generic.size() && remaining > 0; i++) {
+                    remaining -= generic.insert(i, key, remaining, mode);
+                }
+                if (remaining <= 0) {
+                    return ItemStack.EMPTY;
+                }
+                ItemStack left = result.copy();
+                left.setCount((int) remaining);
+                return left;
+            }
+            var adaptor = InternalInventory.wrapExternal(te, side);
             if (adaptor == null) {
                 return result;
             }
-            return adaptor.addItems(result);
+            return mode == Actionable.SIMULATE ? adaptor.simulateAdd(result) : adaptor.addItems(result);
         } catch (Exception e) {
-            AppliedPowah.LOG.warn("provider return failed at {} side {}: {}", worldPosition, providerReturnSide, e.toString());
+            AppliedPowah.LOG.warn("provider return {} failed at {} side {}: {}",
+                    mode, worldPosition, providerReturnSide, e.toString());
             return result;
         }
     }

@@ -36,4 +36,13 @@ public final class OrbResultRules {
         }
         return currentCount <= 0 ? addCount : currentCount + addCount;
     }
+
+    /**
+     * Settle gate: a return sink that takes the entire result is success.
+     * Only the remainder needs OUTPUT room. (Calling canPlace on an empty
+     * remainder wrongly refuses and can leak products if the sink was real.)
+     */
+    public static boolean canSettle(boolean returnSinkTakesAll, boolean outputCanPlaceRemainder) {
+        return returnSinkTakesAll || outputCanPlaceRemainder;
+    }
 }

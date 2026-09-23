@@ -47,4 +47,13 @@ class OrbResultRulesTest {
         assertTrue(OrbResultRules.canPlace(63, true, 1));
         assertEquals(64, OrbResultRules.afterPlace(63, true, 1));
     }
+
+    @Test
+    void settleAllowsFullReturnSinkWithoutOutput() {
+        // regression: empty remainder after provider/CPU return must not refuse the craft
+        assertTrue(OrbResultRules.canSettle(true, false));
+        assertTrue(OrbResultRules.canSettle(true, true));
+        assertTrue(OrbResultRules.canSettle(false, true));
+        assertFalse(OrbResultRules.canSettle(false, false));
+    }
 }
