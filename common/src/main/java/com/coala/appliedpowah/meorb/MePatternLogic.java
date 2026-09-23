@@ -46,7 +46,7 @@ public class MePatternLogic extends PatternProviderLogic {
         if (isBusy()) {
             return false;
         }
-        return meOrb.routePatternInputs(inputHolder);
+        return meOrb.acceptCpuPatternInputs(inputHolder);
     }
 
     private boolean holdsPattern(IPatternDetails patternDetails) {

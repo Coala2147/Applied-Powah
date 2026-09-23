@@ -10,7 +10,6 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
-import appeng.api.storage.StorageHelper;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.me.helpers.MachineSource;
@@ -50,6 +49,13 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     private final PatternProviderLogic patterns = new MePatternLogic(getMainNode(), this, PATTERN_SLOTS);
     private final MeSelfCraftSettings selfCraft = new MeSelfCraftSettings();
     private final MachineSource actionSource = new MachineSource(this);
+    /**
+     * Mek MeAeMachine.hasPassiveCraftingUpgrade — must be installed/on before
+     * processPassiveCrafting runs. Default false: no craft without a CPU order.
+     */
+    private boolean passiveCraftingEnabled;
+    /** True while the current inputs came from a crafting-CPU pushPattern order. */
+    private boolean inputFromCpuOrder;
 
     public MeEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -134,6 +140,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super.saveAdditional(tag);
         patterns.writeToNBT(tag);
         selfCraft.save(tag);
+        tag.putBoolean("PassiveCraftingEnabled", passiveCraftingEnabled);
+        tag.putBoolean("InputFromCpuOrder", inputFromCpuOrder);
     }
 
     @Override
@@ -141,6 +149,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super.loadTag(tag);
         patterns.readFromNBT(tag);
         selfCraft.load(tag);
+        passiveCraftingEnabled = tag.getBoolean("PassiveCraftingEnabled");
+        inputFromCpuOrder = tag.getBoolean("InputFromCpuOrder");
     }
 
     @Override
@@ -166,9 +176,27 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         return ret != null && !ret.isEmpty();
     }
 
-    /** {@link MeInputRouter} 事务式投料。 */
+    /** {@link MeInputRouter} 事务式投料（自合成 / 内部路径，不算 CPU 下单）。 */
     public boolean routePatternInputs(KeyCounter[] inputHolder) {
+        inputFromCpuOrder = false;
         return MeInputRouter.route(inputHolder, craftPorts());
+    }
+
+    /** CPU pushPattern 下单投料 — 产物走 returnInv 回网给 CPU 结算。 */
+    public boolean acceptCpuPatternInputs(KeyCounter[] inputHolder) {
+        boolean ok = MeInputRouter.route(inputHolder, craftPorts());
+        inputFromCpuOrder = ok;
+        return ok;
+    }
+
+    public boolean isPassiveCraftingEnabled() {
+        return passiveCraftingEnabled;
+    }
+
+    public void setPassiveCraftingEnabled(boolean enabled) {
+        this.passiveCraftingEnabled = enabled;
+        setChanged();
+        markForUpdate();
     }
 
     private List<MeInputRouter.InputPort> craftPorts() {
@@ -220,20 +248,6 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     @Override
-    protected boolean autoExportEnabled() {
-        return false;
-    }
-
-    @Override
-    protected void autoExportTick(IGridNode node) {
-    }
-
-    @Override
-    protected boolean pushOutToMe(IGridNode node) {
-        return false;
-    }
-
-    @Override
     protected void completeIfPossible() {
         if (completing || level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
             return;
@@ -275,36 +289,28 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         markForUpdate();
     }
 
+    /**
+     * CPU 下单 → returnInv（AE2 样板供应器回网，给 CPU 结算）。
+     * 其它来源 → OUTPUT 槽；只有「自动输出」开着才由父类 pushOutToMe / autoExportTick 回网。
+     * 未开自动输出绝不 poweredInsert（对齐用户设定）。
+     */
     private void emit(ItemStack result, int count) {
-        try {
-            AEItemKey key = AEItemKey.of(result);
-            var ret = patterns.getReturnInv();
-            if (key != null && ret != null) {
-                long inserted = ret.insert(key, count, Actionable.MODULATE, actionSource);
-                if (inserted >= count) {
-                    return;
-                }
-                if (inserted > 0) {
-                    result.shrink((int) inserted);
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-        try {
-            var grid = getMainNode().getGrid();
-            if (grid != null) {
-                var storage = grid.getService(IStorageService.class);
-                var energy = grid.getEnergyService();
+        if (inputFromCpuOrder) {
+            inputFromCpuOrder = false;
+            try {
                 AEItemKey key = AEItemKey.of(result);
-                if (storage != null && energy != null && key != null) {
-                    long inserted = StorageHelper.poweredInsert(
-                            energy, storage.getInventory(), key, result.getCount(), actionSource);
+                var ret = patterns.getReturnInv();
+                if (key != null && ret != null) {
+                    long inserted = ret.insert(key, count, Actionable.MODULATE, actionSource);
+                    if (inserted >= count) {
+                        return;
+                    }
                     if (inserted > 0) {
                         result.shrink((int) inserted);
                     }
                 }
+            } catch (Throwable ignored) {
             }
-        } catch (Throwable ignored) {
         }
         if (!result.isEmpty()) {
             inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result);
@@ -326,6 +332,10 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         return mod;
     }
 
+    /**
+     * returnInv → 网络：仅样板供应器给 CPU 下单结算用（AE2 PatternProviderLogic.doWork）。
+     * 不代替「自动输出」；OUTPUT 槽回网只走父类 autoExport / pushOutToMe。
+     */
     private void drainReturn(IGridNode node) {
         try {
             var ret = patterns.getReturnInv();
@@ -341,8 +351,15 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         }
     }
 
-    /** 样板内部自合成 — {@link MeSelfCraftSettings#submitAvailable}。 */
+    /**
+     * 样板内部自合成 — 对齐 Mek {@code processPassiveCrafting(enabled)}：
+     * 必须先启用（默认 false，等价未装 PASSIVE_CRAFTING 升级）。
+     * 无下单、未启用时绝不从网络抽料合成。
+     */
     private boolean runSelfCraft(IGridNode node) {
+        if (!passiveCraftingEnabled) {
+            return false;
+        }
         if (level == null || level.isClientSide || node == null || !node.isActive()) {
             return false;
         }
