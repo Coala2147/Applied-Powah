@@ -15,6 +15,7 @@ import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.me.helpers.MachineSource;
 import appeng.menu.locator.MenuLocator;
 import appeng.util.SettingsFrom;
+import com.coala.appliedpowah.AppliedPowah;
 import com.coala.appliedpowah.orb.APOrbs;
 import com.coala.appliedpowah.orb.AdvancedEnergizingOrbBlockEntity;
 import com.coala.appliedpowah.orb.EnergizingOrbLogic;
@@ -54,8 +55,6 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
      * processPassiveCrafting runs. Default false: no craft without a CPU order.
      */
     private boolean passiveCraftingEnabled;
-    /** True while the current inputs came from a crafting-CPU pushPattern order. */
-    private boolean inputFromCpuOrder;
 
     public MeEnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -131,7 +130,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super.onMainNodeStateChanged(reason);
         try {
             patterns.onMainNodeStateChanged();
-        } catch (Throwable ignored) {
+        } catch (Exception e) {
+            AppliedPowah.LOG.debug("patterns.onMainNodeStateChanged: {}", e.toString());
         }
     }
 
@@ -141,7 +141,7 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         patterns.writeToNBT(tag);
         selfCraft.save(tag);
         tag.putBoolean("PassiveCraftingEnabled", passiveCraftingEnabled);
-        tag.putBoolean("InputFromCpuOrder", inputFromCpuOrder);
+        // inputFromCpuOrder is transient — never persist (sticky true forced returnInv).
     }
 
     @Override
@@ -150,7 +150,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         patterns.readFromNBT(tag);
         selfCraft.load(tag);
         passiveCraftingEnabled = tag.getBoolean("PassiveCraftingEnabled");
-        inputFromCpuOrder = tag.getBoolean("InputFromCpuOrder");
+        inputFromCpuOrder = false;
+        providerReturnSide = null;
     }
 
     @Override
@@ -182,7 +183,10 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         return MeInputRouter.route(inputHolder, craftPorts());
     }
 
-    /** CPU pushPattern 下单投料 — 产物走 returnInv 回网给 CPU 结算。 */
+    /**
+     * CPU pushPattern 下单投料 — 产物走 returnInv 回网给 CPU 结算。
+     * 标志仅在 pushPattern→完成 之间存活，不进 NBT。
+     */
     public boolean acceptCpuPatternInputs(KeyCounter[] inputHolder) {
         boolean ok = MeInputRouter.route(inputHolder, craftPorts());
         inputFromCpuOrder = ok;
@@ -247,73 +251,82 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         return ports;
     }
 
+    /**
+     * CPU settlement: returnInv first (AE2 PatternProvider protocol), remainder
+     * via provider return / OUTPUT. Never overwrite OUTPUT.
+     */
     @Override
-    protected void completeIfPossible() {
-        if (completing || level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
-            return;
+    protected boolean canSettleResult(ItemStack result) {
+        if (!inputFromCpuOrder) {
+            return super.canSettleResult(result);
         }
-        ItemStack result;
-        try {
-            result = recipe.getResultItem(level.registryAccess()).copy();
-        } catch (Throwable t) {
-            try {
-                result = recipe.getResultItem().copy();
-            } catch (Throwable ignored) {
-                return;
-            }
+        ItemStack afterCpu = simulateCpuReturn(result);
+        if (afterCpu.isEmpty()) {
+            return true;
         }
-        if (result.isEmpty()) {
-            return;
-        }
-        int count = result.getCount();
-        if (count <= 0 || count > 64) {
-            return;
-        }
-
-        completing = true;
-        try {
-            for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
-                if (!inv.getStackInSlot(i).isEmpty()) {
-                    inv.extractItem(i, 1, false);
-                }
-            }
-            bufferFe = Math.max(0, bufferFe - recipeEnergy);
-            recipeEnergy = 0;
-            recipe = null;
-            containRecipe = false;
-            emit(result, count);
-        } finally {
-            completing = false;
-        }
-        setChanged();
-        markForUpdate();
+        return super.canSettleResult(afterCpu);
     }
 
-    /**
-     * CPU 下单 → returnInv（AE2 样板供应器回网，给 CPU 结算）。
-     * 其它来源 → OUTPUT 槽；只有「自动输出」开着才由父类 pushOutToMe / autoExportTick 回网。
-     * 未开自动输出绝不 poweredInsert（对齐用户设定）。
-     */
-    private void emit(ItemStack result, int count) {
-        if (inputFromCpuOrder) {
-            inputFromCpuOrder = false;
-            try {
-                AEItemKey key = AEItemKey.of(result);
-                var ret = patterns.getReturnInv();
-                if (key != null && ret != null) {
-                    long inserted = ret.insert(key, count, Actionable.MODULATE, actionSource);
-                    if (inserted >= count) {
-                        return;
-                    }
-                    if (inserted > 0) {
-                        result.shrink((int) inserted);
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
+    @Override
+    protected void settleResult(ItemStack result) {
+        if (!inputFromCpuOrder) {
+            super.settleResult(result);
+            providerReturnSide = null;
+            return;
         }
-        if (!result.isEmpty()) {
-            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result);
+        inputFromCpuOrder = false;
+        ItemStack rest = doCpuReturn(result);
+        if (!rest.isEmpty()) {
+            rest = providerReturnSide != null ? doProviderReturn(rest) : rest;
+        }
+        if (!rest.isEmpty() && !tryPlaceResult(rest)) {
+            AppliedPowah.LOG.error(
+                    "ME orb settle lost product {} x{} at {} (cpu return incomplete)",
+                    rest.getItem(), rest.getCount(), worldPosition);
+            net.minecraft.world.Containers.dropItemStack(
+                    level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), rest);
+        }
+        providerReturnSide = null;
+    }
+
+    private ItemStack simulateCpuReturn(ItemStack result) {
+        try {
+            AEItemKey key = AEItemKey.of(result);
+            var ret = patterns.getReturnInv();
+            if (key == null || ret == null) {
+                return result;
+            }
+            long inserted = ret.insert(key, result.getCount(), Actionable.SIMULATE, actionSource);
+            if (inserted >= result.getCount()) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack left = result.copy();
+            left.shrink((int) inserted);
+            return left;
+        } catch (Exception e) {
+            AppliedPowah.LOG.debug("simulateCpuReturn failed: {}", e.toString());
+            return result;
+        }
+    }
+
+    private ItemStack doCpuReturn(ItemStack result) {
+        try {
+            AEItemKey key = AEItemKey.of(result);
+            var ret = patterns.getReturnInv();
+            if (key == null || ret == null) {
+                return result;
+            }
+            long inserted = ret.insert(key, result.getCount(), Actionable.MODULATE, actionSource);
+            if (inserted >= result.getCount()) {
+                return ItemStack.EMPTY;
+            }
+            if (inserted > 0) {
+                result.shrink((int) inserted);
+            }
+            return result;
+        } catch (Exception e) {
+            AppliedPowah.LOG.warn("CPU returnInv insert failed at {}: {}", worldPosition, e.toString());
+            return result;
         }
     }
 
@@ -333,8 +346,9 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     /**
-     * returnInv → 网络：仅样板供应器给 CPU 下单结算用（AE2 PatternProviderLogic.doWork）。
-     * 不代替「自动输出」；OUTPUT 槽回网只走父类 autoExport / pushOutToMe。
+     * returnInv → network: CPU-order settlement only (AE2 PatternProviderLogic.doWork).
+     * This is the single injectIntoNetwork path — PatternProviderLogic's Ticker is
+     * intentionally shadowed by this BE's IGridTickable service. Not gated by autoExport.
      */
     private void drainReturn(IGridNode node) {
         try {
@@ -343,11 +357,13 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
                 return;
             }
             var storage = node.getGrid().getService(IStorageService.class);
-            if (storage != null) {
-                ret.injectIntoNetwork(storage.getInventory(), actionSource, s -> {
-                });
+            if (storage == null) {
+                return;
             }
-        } catch (Throwable ignored) {
+            ret.injectIntoNetwork(storage.getInventory(), actionSource, s -> {
+            });
+        } catch (Exception e) {
+            AppliedPowah.LOG.warn("drainReturn failed at {}: {}", worldPosition, e.toString());
         }
     }
 
@@ -381,7 +397,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
                     storage.getInventory(),
                     actionSource,
                     this::routePatternInputs);
-        } catch (Throwable ignored) {
+        } catch (Exception e) {
+            AppliedPowah.LOG.warn("runSelfCraft failed at {}: {}", worldPosition, e.toString());
             return false;
         }
     }

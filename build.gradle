@@ -6,7 +6,8 @@ plugins {
 
 version = project.mod_version
 group = project.mod_group
-base.archivesName = "${project.archives_base_name}-${project.mod_version}"
+// Intermediate jar name must NOT include version (copyToReleases adds AppliedPowah-<ver>.jar)
+base.archivesName = "${project.archives_base_name}"
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(project.java_version.toInteger())
 
@@ -42,6 +43,14 @@ sourceSets {
             srcDirs = ['common/src/main/resources', 'forge/src/main/resources']
         }
     }
+    test {
+        java {
+            srcDirs = ['common/src/test/java']
+        }
+        resources {
+            srcDirs = ['common/src/test/resources']
+        }
+    }
 }
 
 repositories {
@@ -69,6 +78,17 @@ dependencies {
     compileOnly fg.deobf(files("libs/jei-1.20.1-forge-15.3.0.4.jar"))
     // GuideME is a hard dependency of AE2 15.4.10 (modId guideme); compile against it for our guide
     compileOnly fg.deobf(files("libs/guideme-20.1.15.jar"))
+
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
 }
 
 def replaceProps = [
@@ -108,6 +128,7 @@ tasks.register('copyToReleases', Copy) {
     rename { "AppliedPowah-${project.mod_version}.jar" }
 }
 tasks.named('build').configure { dependsOn 'copyToReleases' }
+tasks.named('check').configure { dependsOn 'test' }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

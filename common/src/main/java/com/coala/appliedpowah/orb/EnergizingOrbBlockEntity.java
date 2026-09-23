@@ -3,6 +3,10 @@ package com.coala.appliedpowah.orb;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.implementations.blockentities.ICraftingMachine;
+import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.api.networking.energy.IEnergyService;
@@ -12,17 +16,23 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageHelper;
 import appeng.api.util.AECableType;
+import appeng.blockentity.crafting.PatternProviderBlockEntity;
 import appeng.blockentity.grid.AENetworkBlockEntity;
+import appeng.capabilities.Capabilities;
 import appeng.me.helpers.MachineSource;
+import com.coala.appliedpowah.AppliedPowah;
 import com.coala.appliedpowah.config.APConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
@@ -37,19 +47,25 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import owmii.powah.block.energizing.EnergizingRecipe;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 /**
- * ME Energizing Orb — rod-fed recipe machine + GUI + ME auto-export.
- * No independent energy cache. Grid connects on BOTTOM only.
+ * Energizing Orb base — rod-fed recipe machine + GUI + ME auto-export.
+ * No independent energy cache. Grid: BOTTOM plus any face next to a PatternProvider.
  *
  * Craft completion uses a re-entrancy guard: writing the output must not
  * re-enter completeIfPossible via onContentsChanged → checkRecipe
  * (that path produced 1→64 stacks).
+ *
+ * Output write path is unique: {@link #tryPlaceResult} (empty / grow / refuse).
+ * {@code ICraftingMachine} lets AE2 PatternProvider push full ingredient sets
+ * (all-or-nothing) instead of treating the orb as a chest.
  */
 public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
-        implements IGridTickable, EnergyAcceptingOrb, IAEPowerStorage {
+        implements IGridTickable, EnergyAcceptingOrb, IAEPowerStorage, ICraftingMachine {
 
     public static final String NBT_EXPORT = "ap_orb_auto_export";
 
@@ -120,9 +136,21 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     protected boolean autoExport;
     /** True when a loaded recipe has no incoming energy (power alert). */
     protected boolean showWarning;
+    /**
+     * True while inputs came from a crafting-CPU order (ME host). Transient —
+     * never persisted (sticky true caused non-order products to force-return).
+     */
+    protected boolean inputFromCpuOrder;
+    /**
+     * Direction toward the PatternProvider that pushed the current set
+     * (ICraftingMachine). Transient. Null = no external settle target.
+     */
+    @Nullable
+    protected Direction providerReturnSide;
     @Nullable
     protected EnergizingRecipe recipe;
     private LazyOptional<IItemHandler> itemCap = LazyOptional.empty();
+    private LazyOptional<ICraftingMachine> craftMachineCap = LazyOptional.empty();
     protected final MachineSource machineSource = new MachineSource(this);
 
     public EnergizingOrbBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -134,7 +162,8 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                 .addService(IGridTickable.class, this);
         try {
             autoExport = APConfig.COMMON.orbAutoExport.get();
-        } catch (Throwable t) {
+        } catch (Exception e) {
+            AppliedPowah.LOG.debug("orbAutoExport config unavailable, default false: {}", e.toString());
             autoExport = false;
         }
     }
@@ -144,6 +173,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         try {
             return getBlockState().getBlock().asItem();
         } catch (Exception e) {
+            AppliedPowah.LOG.debug("getItemFromBlockEntity fallback: {}", e.toString());
             return super.getItemFromBlockEntity();
         }
     }
@@ -209,46 +239,25 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     /**
      * Inscriber-style finish:
      * 1) re-entrancy guard
-     * 2) result = recipe.getResultItem().copy() only
-     * 3) extract 1 per input FIRST (so callbacks cannot re-match)
-     * 4) write output
-     * 5) consume recipeEnergy
+     * 2) result = recipe result copy only
+     * 3) settle sinks (CPU returnInv / provider return) then OUTPUT via tryPlaceResult
+     * 4) refuse (do not consume inputs) if anything would be lost
+     * 5) consume 1 per input and commit
      */
     protected void completeIfPossible() {
         if (completing || level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
             return;
         }
-        ItemStack result;
-        try {
-            result = recipe.getResultItem(level.registryAccess()).copy();
-        } catch (Throwable t) {
-            try {
-                result = recipe.getResultItem().copy();
-            } catch (Throwable ignored) {
-                return;
-            }
-        }
+        ItemStack result = EnergizingOrbLogic.resultOf(level, recipe);
         if (result.isEmpty()) {
             return;
         }
         int resultCount = result.getCount();
-        if (resultCount <= 0 || resultCount > 64) {
+        if (resultCount <= 0 || resultCount > OrbResultRules.MAX_SLOT) {
             return;
         }
-
-        ItemStack slot = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
-        ItemStack after;
-        if (slot.isEmpty()) {
-            after = result.copy();
-        } else {
-            if (!ItemStack.isSameItemSameTags(slot, result)) {
-                return;
-            }
-            if (slot.getCount() + resultCount > 64) {
-                return;
-            }
-            after = slot.copy();
-            after.grow(resultCount);
+        if (!canSettleResult(result)) {
+            return;
         }
 
         completing = true;
@@ -259,7 +268,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                     inv.extractItem(i, 1, false);
                 }
             }
-            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, after);
+            settleResult(result);
             bufferFe = Math.max(0, bufferFe - recipeEnergy);
             recipeEnergy = 0;
             recipe = null;
@@ -269,6 +278,201 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         }
         setChanged();
         markForUpdate();
+    }
+
+    /**
+     * Whether {@link #settleResult} can take the whole stack without dropping items.
+     * Default: OUTPUT only. ME overrides to try returnInv first.
+     */
+    protected boolean canSettleResult(ItemStack result) {
+        if (result == null || result.isEmpty()) {
+            return false;
+        }
+        ItemStack afterReturn = simulateProviderReturn(result);
+        return canPlaceResult(afterReturn);
+    }
+
+    /**
+     * Place result: CPU returnInv / provider return first, remainder to OUTPUT.
+     * Must only be called after {@link #canSettleResult} returned true.
+     */
+    protected void settleResult(ItemStack result) {
+        if (result == null || result.isEmpty()) {
+            return;
+        }
+        ItemStack rest = providerReturnSide != null ? doProviderReturn(result) : result;
+        if (!rest.isEmpty() && !tryPlaceResult(rest)) {
+            AppliedPowah.LOG.error("Orb settle lost product {} x{} at {}", rest.getItem(), rest.getCount(), worldPosition);
+            Containers_drop(rest);
+        }
+    }
+
+    /** Simulate provider return remainder (does not mutate). */
+    protected ItemStack simulateProviderReturn(ItemStack result) {
+        if (providerReturnSide == null || level == null || result.isEmpty()) {
+            return result;
+        }
+        try {
+            BlockEntity te = level.getBlockEntity(worldPosition.relative(providerReturnSide));
+            if (te == null) {
+                return result;
+            }
+            var adaptor = InternalInventory.wrapExternal(te, providerReturnSide.getOpposite());
+            if (adaptor == null) {
+                return result;
+            }
+            ItemStack probe = result.copy();
+            return adaptor.addItems(probe);
+        } catch (Exception e) {
+            AppliedPowah.LOG.debug("simulateProviderReturn failed at {}: {}", worldPosition, e.toString());
+            return result;
+        }
+    }
+
+    /** Push toward the PatternProvider that issued the set (assembler pushTo). @return leftover */
+    protected ItemStack doProviderReturn(ItemStack result) {
+        if (providerReturnSide == null || level == null || result.isEmpty()) {
+            return result;
+        }
+        try {
+            BlockEntity te = level.getBlockEntity(worldPosition.relative(providerReturnSide));
+            if (te == null) {
+                return result;
+            }
+            var adaptor = InternalInventory.wrapExternal(te, providerReturnSide.getOpposite());
+            if (adaptor == null) {
+                return result;
+            }
+            return adaptor.addItems(result);
+        } catch (Exception e) {
+            AppliedPowah.LOG.warn("provider return failed at {} side {}: {}", worldPosition, providerReturnSide, e.toString());
+            return result;
+        }
+    }
+
+    /** OUTPUT empty / same-stack grow / refuse. Never overwrite. */
+    protected boolean canPlaceResult(ItemStack result) {
+        if (result == null || result.isEmpty()) {
+            return false;
+        }
+        ItemStack slot = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
+        return OrbResultRules.canPlace(
+                slot.getCount(),
+                !slot.isEmpty() && ItemStack.isSameItemSameTags(slot, result),
+                result.getCount());
+    }
+
+    /** Unique OUTPUT write path. @return false if refused (full / different item). */
+    protected boolean tryPlaceResult(ItemStack result) {
+        if (!canPlaceResult(result)) {
+            return false;
+        }
+        ItemStack slot = inv.getStackInSlot(EnergizingOrbLogic.OUTPUT);
+        if (slot.isEmpty()) {
+            inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, result.copy());
+            return true;
+        }
+        ItemStack after = slot.copy();
+        after.grow(result.getCount());
+        inv.setStackInSlot(EnergizingOrbLogic.OUTPUT, after);
+        return true;
+    }
+
+    private void Containers_drop(ItemStack stack) {
+        net.minecraft.world.Containers.dropItemStack(
+                level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), stack);
+    }
+
+    // ---- ICraftingMachine: AE2 PatternProvider pushes full sets (not a chest) ----
+
+    @Override
+    public PatternContainerGroup getCraftingMachineInfo() {
+        AEItemKey icon = AEItemKey.of(new ItemStack(getItemFromBlockEntity()));
+        Component name = getBlockState().getBlock().getName();
+        return new PatternContainerGroup(icon, name, List.of());
+    }
+
+    @Override
+    public boolean acceptsPlans() {
+        if (level == null || level.isClientSide) {
+            return false;
+        }
+        int empty = 0;
+        for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
+            if (inv.getStackInSlot(i).isEmpty()) {
+                empty++;
+            }
+        }
+        return OrbCraftGate.acceptsPlans(completing, containRecipe, empty);
+    }
+
+    @Override
+    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputs, Direction ejectionDirection) {
+        if (patternDetails == null || inputs == null || level == null || level.isClientSide) {
+            return false;
+        }
+        if (completing || containRecipe) {
+            return false;
+        }
+        List<AEItemKey> singles = expandPatternSingles(inputs);
+        if (singles == null || singles.isEmpty()) {
+            return false;
+        }
+        int empty = 0;
+        for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
+            if (inv.getStackInSlot(i).isEmpty()) {
+                empty++;
+            }
+        }
+        if (!OrbCraftGate.canAcceptFullSet(empty, singles.size())) {
+            return false;
+        }
+        int idx = 0;
+        boolean saved = completing;
+        completing = true;
+        try {
+            for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots() && idx < singles.size(); i++) {
+                if (!inv.getStackInSlot(i).isEmpty()) {
+                    continue;
+                }
+                AEItemKey key = singles.get(idx);
+                if (!EnergizingOrbLogic.canInsertInput(inv, i, key.toStack(1))) {
+                    return false;
+                }
+                inv.setStackInSlot(i, key.toStack(1));
+                idx++;
+            }
+        } finally {
+            completing = saved;
+        }
+        if (idx != singles.size()) {
+            return false;
+        }
+        providerReturnSide = ejectionDirection;
+        inputFromCpuOrder = false;
+        checkRecipe();
+        setChanged();
+        markForUpdate();
+        return true;
+    }
+
+    @Nullable
+    private static List<AEItemKey> expandPatternSingles(KeyCounter[] inputHolders) {
+        List<AEItemKey> singles = new ArrayList<>();
+        for (KeyCounter counter : inputHolders) {
+            if (counter == null || counter.isEmpty()) {
+                continue;
+            }
+            for (var entry : counter) {
+                if (!(entry.getKey() instanceof AEItemKey itemKey) || entry.getLongValue() <= 0) {
+                    return null;
+                }
+                for (long n = 0; n < entry.getLongValue(); n++) {
+                    singles.add(itemKey);
+                }
+            }
+        }
+        return singles;
     }
 
     protected void checkRecipe() {
@@ -374,7 +578,8 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     protected int autoExportBudget() {
         try {
             return Math.max(1, APConfig.COMMON.orbExportItemsPerTick.get());
-        } catch (Throwable t) {
+        } catch (Exception e) {
+            AppliedPowah.LOG.debug("orbExportItemsPerTick config unavailable, default 8: {}", e.toString());
             return 8;
         }
     }
@@ -485,26 +690,64 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                 markForUpdate();
                 return true;
             }
-        } catch (Throwable ignored) {
+        } catch (Exception e) {
+            AppliedPowah.LOG.warn("pushOutToMe failed at {}: {}", worldPosition, e.toString());
         }
         return false;
     }
 
-    /** BOTTOM only — user-tested ground cable connects; do not open other faces. */
+    /**
+     * BOTTOM only by default (tested ground cable). Also open faces that neighbor
+     * a PatternProvider so orb-stacked-on-provider can join the grid when the
+     * provider side allows it (omni push, or a non-push face).
+     */
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
-        return EnumSet.of(Direction.DOWN);
+        EnumSet<Direction> sides = EnumSet.of(Direction.DOWN);
+        if (level != null) {
+            for (Direction dir : Direction.values()) {
+                if (dir == Direction.DOWN) {
+                    continue;
+                }
+                BlockEntity be = level.getBlockEntity(worldPosition.relative(dir));
+                if (be instanceof PatternProviderBlockEntity) {
+                    sides.add(dir);
+                }
+            }
+        }
+        return sides;
     }
 
     @Override
     public AECableType getCableConnectionType(Direction dir) {
-        return dir == Direction.DOWN ? AECableType.COVERED : AECableType.NONE;
+        if (dir == Direction.DOWN) {
+            return AECableType.COVERED;
+        }
+        if (level != null) {
+            BlockEntity be = level.getBlockEntity(worldPosition.relative(dir));
+            if (be instanceof PatternProviderBlockEntity) {
+                return AECableType.COVERED;
+            }
+        }
+        return AECableType.NONE;
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        getMainNode().setExposedOnSides(EnumSet.of(Direction.DOWN));
+        EnumSet<Direction> exposed = EnumSet.of(Direction.DOWN);
+        if (level != null) {
+            for (Direction dir : Direction.values()) {
+                if (dir == Direction.DOWN) {
+                    continue;
+                }
+                BlockEntity be = level.getBlockEntity(worldPosition.relative(dir));
+                if (be instanceof PatternProviderBlockEntity) {
+                    exposed.add(dir);
+                }
+            }
+        }
+        getMainNode().setExposedOnSides(exposed);
     }
 
     @Override
@@ -540,6 +783,12 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
             }
             return itemCap.cast();
         }
+        if (cap == Capabilities.CRAFTING_MACHINE) {
+            if (craftMachineCap == null || !craftMachineCap.isPresent()) {
+                craftMachineCap = LazyOptional.of(() -> this);
+            }
+            return craftMachineCap.cast();
+        }
         return super.getCapability(cap, side);
     }
 
@@ -547,6 +796,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     public void invalidateCaps() {
         super.invalidateCaps();
         itemCap.invalidate();
+        craftMachineCap.invalidate();
     }
 }
 

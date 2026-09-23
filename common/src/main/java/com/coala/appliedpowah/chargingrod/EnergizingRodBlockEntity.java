@@ -17,6 +17,7 @@ import appeng.api.util.AECableType;
 import appeng.blockentity.grid.AENetworkBlockEntity;
 import com.coala.appliedpowah.config.APConfig;
 import com.coala.appliedpowah.integration.appflux.FluxBridge;
+import com.coala.appliedpowah.integration.powah.ApOrbFeed;
 import com.coala.appliedpowah.integration.powah.PowahBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -141,7 +142,12 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
             return;
         }
         BlockPos old = orbPos;
-        BlockPos found = PowahBridge.findNearbyOrb(level, worldPosition, orbPos);
+        BlockPos found;
+        if (ModList.get().isLoaded("powah")) {
+            found = PowahBridge.findNearbyOrb(level, worldPosition, orbPos);
+        } else {
+            found = ApOrbFeed.findNearestApOrb(level, worldPosition, orbPos, 4);
+        }
         orbPos = found == null ? BlockPos.ZERO : found;
         if (!orbPos.equals(old)) {
             setChanged();
@@ -271,7 +277,7 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
     }
 
     private void feedOrb() {
-        if (level == null || !ModList.get().isLoaded("powah")) {
+        if (level == null) {
             return;
         }
         // Always keep orbPos up-to-date so the beam renderer knows the target
@@ -282,7 +288,13 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
             return;
         }
         RodTier t = tier();
-        long pushed = PowahBridge.feedNearbyOrb(level, worldPosition, orbPos, bufferFe, t.transferFe);
+        long pushed;
+        if (ModList.get().isLoaded("powah")) {
+            pushed = PowahBridge.feedNearbyOrb(level, worldPosition, orbPos, bufferFe, t.transferFe);
+        } else {
+            // AP orbs do not require Powah — only owmii.* branches are gated.
+            pushed = ApOrbFeed.feedNearestApOrb(level, worldPosition, orbPos, bufferFe, t.transferFe, 4);
+        }
         if (pushed > 0) {
             bufferFe -= pushed;
             lastPushed = pushed;

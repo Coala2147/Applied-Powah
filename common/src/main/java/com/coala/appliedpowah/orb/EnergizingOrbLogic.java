@@ -79,10 +79,11 @@ public final class EnergizingOrbLogic {
     public static ItemStack resultOf(Level level, EnergizingRecipe recipe) {
         try {
             return recipe.getResultItem(level.registryAccess()).copy();
-        } catch (Throwable t) {
+        } catch (Exception e) {
             try {
                 return recipe.getResultItem().copy();
-            } catch (Throwable ignored) {
+            } catch (Exception e2) {
+                com.coala.appliedpowah.AppliedPowah.LOG.error("recipe result unreadable: {}", e2.toString());
                 return ItemStack.EMPTY;
             }
         }

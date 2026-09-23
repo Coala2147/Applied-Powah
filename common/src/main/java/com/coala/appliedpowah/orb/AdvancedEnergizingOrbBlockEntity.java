@@ -19,11 +19,11 @@ import net.minecraftforge.items.ItemStackHandler;
 /**
  * Advanced Energizing Orb.
  * <ul>
- *   <li>4 rod slots 脳 鈮?6 AP rods; same AE/ME family; mixed tiers OK.</li>
+ *   <li>4 rod slots × up to 16 AP rods; same AE/ME family; mixed tiers OK.</li>
  *   <li>Built-in cache = Extreme Dense Energy Cell equivalent (FE), works with zero rods.</li>
  *   <li>Rod capacities stack on top of the built-in cache.</li>
  *   <li>Rod items never enter craft input slots.</li>
- *   <li>Grid: BOTTOM only (matches tested ground cable).</li>
+ *   <li>Grid: BOTTOM + faces next to PatternProvider (matches tested ground cable).</li>
  * </ul>
  */
 public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
@@ -31,7 +31,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
 
     public static final int ROD_SLOTS = 4;
     public static final int MAX_RODS_PER_SLOT = 16;
-    /** ExtremeDenseEnergyCellBlock.MAX_POWER (AE) 脳 2 = FE. Always present, no rods needed. */
+    /** ExtremeDenseEnergyCellBlock.MAX_POWER (AE) × 2 = FE. Always present, no rods needed. */
     public static final long BASE_CACHE_FE =
             (long) com.coala.appliedpowah.energycell.ExtremeDenseEnergyCellBlock.MAX_POWER * 2L;
 
@@ -103,11 +103,11 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                 return rod.isAeUnit();
             }
         }
-        // No rods 鈫?built-in cache is FE (user spec).
+        // No rods → built-in cache is FE (user spec).
         return false;
     }
 
-    /** 危 n_i 脳 C(t_i) in internal FE (rod part only). */
+    /** Σ n_i × C(t_i) in internal FE (rod part only). */
     public long rodCapacitySum() {
         long sum = 0;
         for (int i = 0; i < ROD_SLOTS; i++) {
@@ -162,7 +162,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
      * When rods are removed, leftover FE may exceed the new cache cap.
      * 1) Try to push the excess back into the AE network.
      * 2) Otherwise every 20t shed 5% of current FE (min 5% of BASE_CACHE_FE)
-     *    until bufferFe 鈮?BASE_CACHE_FE; the final step sheds exactly the excess.
+     *    until bufferFe ≤ BASE_CACHE_FE; the final step sheds exactly the excess.
      */
     private void handleOverflow(IGridNode node) {
         long cap = cacheMaxFe();
@@ -186,7 +186,8 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                         markForUpdate();
                     }
                 }
-            } catch (Throwable ignored) {
+            } catch (Exception e) {
+                com.coala.appliedpowah.AppliedPowah.LOG.debug("handleOverflow inject failed: {}", e.toString());
             }
         }
         if (bufferFe <= cap) {
@@ -201,7 +202,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         overflowTick = 0;
         long over = bufferFe - BASE_CACHE_FE;
         if (over <= 0) {
-            // between BASE and cap (rods still present) 鈥?drain down to cap only
+            // between BASE and cap (rods still present) — drain down to cap only
             over = bufferFe - cap;
         }
         long minShed = Math.max(1L, BASE_CACHE_FE / 20); // 5% of default cache
@@ -288,7 +289,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                 bufferFe += got;
             }
         } else if (rodsPresent() && rodsAreAe()) {
-            // AE rods but appflux path not taken 鈥?already handled above.
+            // AE rods but appflux path not taken — already handled above.
         } else {
             // No rods and FE family: still pull AE from grid as FE (1 AE = 2 FE).
             IEnergyService energy = node.getGrid().getEnergyService();
@@ -406,7 +407,8 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                 setChanged();
                 markForUpdate();
             }
-        } catch (Throwable ignored) {
+        } catch (Exception e) {
+            com.coala.appliedpowah.AppliedPowah.LOG.debug("pushEnergyOut failed: {}", e.toString());
         }
     }
 

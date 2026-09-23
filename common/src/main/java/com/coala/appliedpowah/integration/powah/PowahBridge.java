@@ -1,6 +1,8 @@
 package com.coala.appliedpowah.integration.powah;
 
+import com.coala.appliedpowah.AppliedPowah;
 import com.coala.appliedpowah.orb.EnergyAcceptingOrb;
+import com.coala.appliedpowah.orb.NearestPos;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -8,8 +10,12 @@ import net.minecraftforge.fml.ModList;
 import owmii.powah.Powah;
 import owmii.powah.block.energizing.EnergizingOrbTile;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Finds and feeds Powah orbs and Applied Powah orbs (ME / Advanced).
+ * Finds and feeds Powah orbs and Applied Powah orbs (ME / Advanced / Fluix).
+ * Selection is always the nearest feedable orb (not scan-order first).
  */
 public final class PowahBridge {
     private PowahBridge() {
@@ -39,34 +45,58 @@ public final class PowahBridge {
         return 0;
     }
 
-    public static BlockPos findNearbyOrb(Level level, BlockPos from, BlockPos remembered) {
-        if (level == null) {
-            return null;
-        }
-        if (remembered != null && !remembered.equals(BlockPos.ZERO)) {
-            BlockEntity be = level.getBlockEntity(remembered);
-            if (isFeedable(be)) {
-                return remembered;
-            }
-        }
-        if (from == null || from.equals(BlockPos.ZERO)) {
-            return null;
-        }
+    static int defaultRange() {
         int range = 4;
         if (ModList.get().isLoaded("powah")) {
             try {
                 range = Powah.config().general.energizing_range;
-            } catch (Throwable ignored) {
+            } catch (Exception e) {
+                AppliedPowah.LOG.debug("powah energizing_range unavailable, default 4: {}", e.toString());
             }
         }
+        return range;
+    }
+
+    /**
+     * Nearest feedable orb within range. {@code remembered} wins only when still nearest
+     * (stable on ties). Scan-order first-hit is intentionally not used (that was the bug).
+     */
+    public static BlockPos findNearbyOrb(Level level, BlockPos from, BlockPos remembered) {
+        if (level == null) {
+            return null;
+        }
+        if (from == null || from.equals(BlockPos.ZERO)) {
+            return null;
+        }
+        int range = defaultRange();
+        List<BlockPos> candidates = new ArrayList<>();
+        int rememberedIndex = -1;
         for (BlockPos pos : BlockPos.betweenClosed(
                 from.offset(-range, -range, -range),
                 from.offset(range, range, range))) {
-            if (isFeedable(level.getBlockEntity(pos))) {
-                return pos.immutable();
+            if (!isFeedable(level.getBlockEntity(pos))) {
+                continue;
             }
+            BlockPos imm = pos.immutable();
+            if (remembered != null && imm.equals(remembered)) {
+                rememberedIndex = candidates.size();
+            }
+            candidates.add(imm);
         }
-        return null;
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        long[] xs = new long[candidates.size()];
+        long[] ys = new long[candidates.size()];
+        long[] zs = new long[candidates.size()];
+        for (int i = 0; i < candidates.size(); i++) {
+            BlockPos p = candidates.get(i);
+            xs[i] = p.getX();
+            ys[i] = p.getY();
+            zs[i] = p.getZ();
+        }
+        int best = NearestPos.nearestIndex(xs, ys, zs, from.getX(), from.getY(), from.getZ(), rememberedIndex);
+        return best < 0 ? null : candidates.get(best);
     }
 
     /** @return FE accepted by the orb. */
