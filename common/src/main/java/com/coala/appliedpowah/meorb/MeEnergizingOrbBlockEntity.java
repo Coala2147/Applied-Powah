@@ -27,9 +27,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.LazyOptional;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -349,11 +346,15 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     /**
-     * returnInv → network: CPU-order settlement only (AE2 PatternProviderLogic.doWork).
-     * This is the single injectIntoNetwork path — PatternProviderLogic's Ticker is
-     * intentionally shadowed by this BE's IGridTickable service. Not gated by autoExport.
+     * returnInv → network (AE2 PatternProvider returnInv.injectIntoNetwork).
+     * PatternProviderLogic's own Ticker is shadowed by this BE's IGridTickable —
+     * this is the single inject path. Gated by autoExport: OFF means no return
+     * at all (CPU order hangs by design; turning the switch back on resumes).
      */
     private void drainReturn(IGridNode node) {
+        if (!autoExportEnabled()) {
+            return;
+        }
         try {
             var ret = patterns.getReturnInv();
             if (ret == null || ret.isEmpty() || node == null || !node.isActive()) {
@@ -406,13 +407,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         }
     }
 
-    @Override
-    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
-        if (cap == ForgeCapabilities.ITEM_HANDLER) {
-            return LazyOptional.empty();
-        }
-        return super.getCapability(cap, side);
-    }
+    // ITEM_HANDLER: inherit base RangedWrapper — every face can access craft slots
+    // (开发总报告 §1.2 / Q16). Do not empty this capability.
 
     @Override
     public AccessRestriction getPowerFlow() {

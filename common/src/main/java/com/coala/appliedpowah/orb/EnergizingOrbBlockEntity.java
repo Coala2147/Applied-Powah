@@ -130,7 +130,10 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     /** Blocks re-entrant completeIfPossible while writing output / extracting inputs. */
     protected boolean completing;
+    /** Energy-cell cache only (IO / display / overflow). Never recipe progress. */
     protected long bufferFe;
+    /** Energy poured into the current recipe (E_need). Unbounded by cache. */
+    protected long recipeProgress;
     protected long recipeEnergy;
     protected boolean containRecipe;
     protected boolean autoExport;
@@ -198,7 +201,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     }
 
     public long getProgress() {
-        return recipeEnergy <= 0 ? 0 : Math.min(recipeEnergy, bufferFe);
+        return recipeEnergy <= 0 ? 0 : Math.min(recipeEnergy, recipeProgress);
     }
 
     public long getRecipeEnergy() {
@@ -207,6 +210,10 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     public long getBufferFe() {
         return bufferFe;
+    }
+
+    public long getRecipeProgress() {
+        return recipeProgress;
     }
 
     public boolean isShowWarning() {
@@ -218,19 +225,50 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         return containRecipe;
     }
 
-    @Override
-    public long fillEnergy(long amount) {
-        if (level == null || recipe == null || recipeEnergy <= 0 || amount <= 0 || completing) {
+    /**
+     * Progressive recipe fill (§3.1). Progress is not capped by the energy-cell cache.
+     *
+     * @return how much of {@code amount} went into recipe progress
+     */
+    protected long fillRecipeEnergy(long amount) {
+        if (recipe == null || recipeEnergy <= 0 || amount <= 0 || completing) {
             return 0;
         }
-        long empty = Math.max(0, recipeEnergy - bufferFe);
-        long filled = Math.min(empty, amount);
+        long filled = OrbEnergyMath.fillRecipe(recipeProgress, recipeEnergy, amount);
         if (filled > 0) {
-            bufferFe += filled;
+            recipeProgress += filled;
         }
-        if (bufferFe >= recipeEnergy) {
+        if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
             completeIfPossible();
         }
+        return filled;
+    }
+
+    /**
+     * Cache → progress: stored buffer energy drives the active recipe
+     * (rods/cache must be able to craft, not only fresh network pull).
+     */
+    protected void feedProgressFromBuffer() {
+        if (recipe == null || recipeEnergy <= 0 || completing || bufferFe <= 0) {
+            return;
+        }
+        long take = OrbEnergyMath.feedProgressFromBuffer(recipeProgress, recipeEnergy, bufferFe);
+        if (take <= 0) {
+            return;
+        }
+        bufferFe -= take;
+        recipeProgress += take;
+        if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
+            completeIfPossible();
+        }
+    }
+
+    @Override
+    public long fillEnergy(long amount) {
+        if (level == null || amount <= 0 || completing) {
+            return 0;
+        }
+        long filled = fillRecipeEnergy(amount);
         setChanged();
         markForUpdate();
         return filled;
@@ -245,7 +283,8 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
      * 5) consume 1 per input and commit
      */
     protected void completeIfPossible() {
-        if (completing || level == null || recipe == null || recipeEnergy <= 0 || bufferFe < recipeEnergy) {
+        if (completing || level == null || recipe == null || recipeEnergy <= 0
+                || !OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
             return;
         }
         ItemStack result = EnergizingOrbLogic.resultOf(level, recipe);
@@ -269,7 +308,8 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                 }
             }
             settleResult(result);
-            bufferFe = Math.max(0, bufferFe - recipeEnergy);
+            // Progress is spent on the recipe; cache (bufferFe) is untouched.
+            recipeProgress = 0;
             recipeEnergy = 0;
             recipe = null;
             containRecipe = false;
@@ -497,21 +537,21 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         }
         EnergizingRecipe found = EnergizingOrbLogic.findRecipe(level, inv);
         if (found != null) {
-            if (recipe != found && !(this instanceof AdvancedEnergizingOrbBlockEntity)) {
-                bufferFe = 0;
+            if (recipe != found) {
+                // New recipe — drop stale progress. Cache is Advanced-only and stays.
+                recipeProgress = 0;
             }
             recipe = found;
             recipeEnergy = found.getEnergy();
             containRecipe = true;
-            if (bufferFe >= recipeEnergy) {
+            feedProgressFromBuffer();
+            if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
                 completeIfPossible();
             }
         } else {
             recipe = null;
             recipeEnergy = 0;
-            if (!(this instanceof AdvancedEnergizingOrbBlockEntity)) {
-                bufferFe = 0;
-            }
+            recipeProgress = 0;
             containRecipe = false;
         }
         updateWarning();
@@ -526,7 +566,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
      */
     protected void updateWarning() {
         boolean warn = false;
-        if (recipe != null && recipeEnergy > 0 && bufferFe <= 0) {
+        if (recipe != null && recipeEnergy > 0 && recipeProgress <= 0 && bufferFe <= 0) {
             if (this instanceof AdvancedEnergizingOrbBlockEntity adv) {
                 warn = adv.rodsPresent();
             } else {
@@ -543,7 +583,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     }
 
     public long getDisplayEnergy() {
-        return recipeEnergy > 0 ? bufferFe : 0;
+        return recipeEnergy > 0 ? recipeProgress : 0;
     }
 
     public long getDisplayCapacity() {
@@ -662,6 +702,10 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         if (recipe == null && !completing) {
             checkRecipe();
         }
+        feedProgressFromBuffer();
+        if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
+            completeIfPossible();
+        }
         pullFromNetwork(node);
         autoExportTick(node);
         boolean exported = pushOutToMe(node);
@@ -770,6 +814,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.putLong("bufferFe", bufferFe);
+        tag.putLong("recipeProgress", recipeProgress);
         tag.putLong("recipeEnergy", recipeEnergy);
         tag.putBoolean("containRecipe", containRecipe);
         tag.putBoolean(NBT_EXPORT, autoExport);
@@ -785,6 +830,14 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         containRecipe = tag.getBoolean("containRecipe");
         autoExport = tag.getBoolean(NBT_EXPORT);
         showWarning = tag.getBoolean("showWarning");
+        if (tag.contains("recipeProgress")) {
+            recipeProgress = tag.getLong("recipeProgress");
+        } else {
+            // Legacy: progress lived inside bufferFe.
+            long[] migrated = OrbEnergyMath.migrateLegacyBuffer(bufferFe, recipeEnergy, containRecipe);
+            recipeProgress = migrated[0];
+            bufferFe = migrated[1];
+        }
         if (tag.contains("orbInv")) {
             inv.deserializeNBT(tag.getCompound("orbInv"));
         }

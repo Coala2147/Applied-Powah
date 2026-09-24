@@ -194,16 +194,15 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
             overflowTick = 0;
             return;
         }
-        // 2) periodic dissipation
+        // 2) periodic dissipation — shed only above the *current* cap (rods may still provide room)
         overflowTick++;
         if (overflowTick < 20) {
             return;
         }
         overflowTick = 0;
-        long over = bufferFe - BASE_CACHE_FE;
+        long over = OrbEnergyMath.overflowAbove(bufferFe, cap);
         if (over <= 0) {
-            // between BASE and cap (rods still present) — drain down to cap only
-            over = bufferFe - cap;
+            return;
         }
         long minShed = Math.max(1L, BASE_CACHE_FE / 20); // 5% of default cache
         long shed = Math.max(minShed, bufferFe / 20);    // 5% of current
@@ -215,20 +214,26 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         markForUpdate();
     }
 
+    /**
+     * Recipe progress first (unbounded by cache), remainder into the energy cell.
+     * Cache never blocks a high-cost recipe (§1.1).
+     */
     @Override
     public long fillEnergy(long amount) {
         if (level == null || amount <= 0 || completing) {
             return 0;
         }
-        long cacheMax = cacheMaxFe();
-        long empty = Math.max(0, cacheMax - bufferFe);
-        long filled = Math.min(empty, amount);
-        if (filled > 0) {
-            bufferFe += filled;
+        long filled = fillRecipeEnergy(amount);
+        long rest = amount - filled;
+        if (rest > 0) {
+            long room = OrbEnergyMath.cacheRoom(bufferFe, cacheMaxFe());
+            long toCache = Math.min(room, rest);
+            if (toCache > 0) {
+                bufferFe += toCache;
+                filled += toCache;
+            }
         }
-        if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
-            completeIfPossible();
-        }
+        feedProgressFromBuffer();
         updateWarning();
         setChanged();
         markForUpdate();
@@ -236,8 +241,8 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     }
 
     /**
-     * Network pull fills the built-in + rod cache (energy-cell style).
-     * Works with or without rods. Ground cable on DOWN is enough.
+     * Network pull fills recipe progress first, then the built-in + rod cache.
+     * A full cache must not block recipe fill (§1.1). Works with or without rods.
      */
     @Override
     protected void pullFromNetwork(IGridNode node) {
@@ -247,16 +252,18 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
             return;
         }
         long cacheMax = cacheMaxFe();
-        if (bufferFe > cacheMax) {
-            return;
-        }
-        long room = Math.max(0, cacheMax - bufferFe);
-        if (room <= 0) {
-            if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
+        long cacheRoom = OrbEnergyMath.cacheRoom(bufferFe, cacheMax);
+        long recipeNeed = recipe != null && recipeEnergy > 0
+                ? Math.max(0L, recipeEnergy - recipeProgress) : 0L;
+        // Still try to complete from existing progress / buffer even with no pull room.
+        if (cacheRoom <= 0 && recipeNeed <= 0) {
+            feedProgressFromBuffer();
+            if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
                 completeIfPossible();
             }
             return;
         }
+        long room = cacheRoom + recipeNeed; // may pull past cache cap when a recipe needs it
         if (rodsAreAe()) {
             IEnergyService energy = node.getGrid().getEnergyService();
             double max = Math.max(1.0, energy.getMaxStoredPower());
@@ -269,6 +276,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                 wantAe = wantFe / 2.0;
             }
             if (wantAe <= 0) {
+                feedProgressFromBuffer();
                 return;
             }
             double got = energy.extractAEPower(wantAe, Actionable.MODULATE, PowerMultiplier.ONE);
@@ -282,6 +290,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
             }
             long want = Math.min(APConfig.COMMON.meBurstFe.get(), room);
             if (want <= 0) {
+                feedProgressFromBuffer();
                 return;
             }
             long got = FluxBridge.extractFe(storage, want);
@@ -303,6 +312,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                 wantAe = wantFe / 2.0;
             }
             if (wantAe <= 0) {
+                feedProgressFromBuffer();
                 return;
             }
             double got = energy.extractAEPower(wantAe, Actionable.MODULATE, PowerMultiplier.ONE);
@@ -310,10 +320,13 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                 bufferFe += Math.round(got * 2.0);
             }
         }
+        // Split: recipe progress first, cache keeps the rest; overflow sheds cache only.
+        feedProgressFromBuffer();
         if (recipe == null && !completing) {
             checkRecipe();
         }
-        if (recipe != null && recipeEnergy > 0 && bufferFe >= recipeEnergy) {
+        feedProgressFromBuffer();
+        if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
             completeIfPossible();
         }
         updateWarning();
