@@ -51,11 +51,26 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     private static final ResourceLocation GUIDE_PAGE =
             new ResourceLocation("applied_powah", "ap_intro/energizing-orbs.md");
 
+    /** AE2 upgrade panel chrome (UpgradesPanel). */
+    private static final ResourceLocation TEX_EXTRA_PANELS =
+            new ResourceLocation("ae2", "textures/guis/extra_panels.png");
+    /** AE2 empty-slot icon BACKGROUND_UPGRADE (Icon 240,208). */
+    private static final ResourceLocation TEX_STATES_AE2 =
+            new ResourceLocation("ae2", "textures/guis/states.png");
+
     private static final int BTN = 16;
     private static final int TOOLBAR_X = -20;
     private static final int GUIDE_BTN_Y = 8;
     private static final int EXPORT_BTN_Y = 28;
     private static final int PATTERN_BTN_Y = 48;
+
+    /** Upgrade panel layout (mirrors AE2 UpgradesPanel: pad 7, slot 18). */
+    private static final int UP_PAD = 7;
+    private static final int UP_SLOT = 18;
+    private static final int UP_X = 174; // right:-2 of 176-wide GUI
+    private static final int UP_Y = 18;
+    private boolean hoverUpgradePanel;
+    private int hoverUpgradeSlot = -1;
 
     public EnergizingOrbScreen(EnergizingOrbMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -77,6 +92,81 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
 
     private int guideX() {
         return leftPos + TOOLBAR_X;
+    }
+
+    /**
+     * AE2 UpgradesPanel-style column: extra_panels.png slot chrome + empty
+     * BACKGROUND_UPGRADE icon (states.png 240,208).
+     */
+    private void drawUpgradePanel(GuiGraphics g, int x, int y, int mouseX, int mouseY) {
+        int slots = UpgradeCardInv.SLOTS;
+        int panelW = UP_PAD * 2 + UP_SLOT;
+        int panelH = UP_PAD * 2 + slots * UP_SLOT;
+        // outer border pieces from extra_panels.png (128×128), slot cell at src(7,7,18,18)
+        g.blit(TEX_EXTRA_PANELS, x + UP_X, y + UP_Y, 0, 0, UP_PAD, UP_PAD, 128, 128);
+        g.blit(TEX_EXTRA_PANELS, x + UP_X + UP_PAD + UP_SLOT, y + UP_Y, 25, 0, UP_PAD, UP_PAD, 128, 128);
+        g.blit(TEX_EXTRA_PANELS, x + UP_X, y + UP_Y + UP_PAD + slots * UP_SLOT, 0, 25, UP_PAD, UP_PAD, 128, 128);
+        g.blit(TEX_EXTRA_PANELS, x + UP_X + UP_PAD + UP_SLOT, y + UP_Y + UP_PAD + slots * UP_SLOT,
+                25, 25, UP_PAD, UP_PAD, 128, 128);
+        // side rails
+        for (int i = 0; i < slots; i++) {
+            g.blit(TEX_EXTRA_PANELS, x + UP_X + UP_PAD, y + UP_Y + UP_PAD + i * UP_SLOT, 7, 7, UP_SLOT, UP_SLOT, 128, 128);
+            // empty upgrade icon
+            var slot = menu.getUpgradeSlot(i);
+            if (slot != null && !slot.hasItem()) {
+                g.blit(TEX_STATES_AE2,
+                        x + UP_X + UP_PAD + 1, y + UP_Y + UP_PAD + i * UP_SLOT + 1,
+                        240, 208, 16, 16, 256, 256);
+            }
+        }
+        // hover tracking
+        hoverUpgradePanel = false;
+        hoverUpgradeSlot = -1;
+        int mx = mouseX - x;
+        int my = mouseY - y;
+        if (mx >= UP_X && mx < UP_X + panelW && my >= UP_Y && my < UP_Y + panelH) {
+            hoverUpgradePanel = true;
+            int row = (my - UP_Y - UP_PAD) / UP_SLOT;
+            if (row >= 0 && row < slots) {
+                hoverUpgradeSlot = row;
+            }
+        }
+    }
+
+    @Override
+    protected void renderTooltip(GuiGraphics g, int mx, int my) {
+        if (menu.isAdvanced() && hoverUpgradePanel) {
+            var lines = new java.util.ArrayList<net.minecraft.network.chat.Component>();
+            lines.add(net.minecraft.network.chat.Component.translatable("applied_powah.gui.compatible_upgrades"));
+            lines.add(net.minecraft.network.chat.Component.translatable(
+                    "applied_powah.gui.compatible_upgrade.thread"));
+            lines.add(net.minecraft.network.chat.Component.translatable(
+                    "applied_powah.gui.compatible_upgrade.parallel"));
+            lines.add(net.minecraft.network.chat.Component.translatable(
+                    "applied_powah.gui.compatible_upgrade.energy"));
+            if (hoverUpgradeSlot >= 0) {
+                var slot = menu.getUpgradeSlot(hoverUpgradeSlot);
+                if (slot != null && slot.hasItem()) {
+                    g.renderTooltip(font, slot.getItem(), mx, my);
+                    return;
+                }
+            }
+            g.renderComponentTooltip(font, lines, mx, my);
+            return;
+        }
+        super.renderTooltip(g, mx, my);
+    }
+
+    /** Lane / T / P status line (GTO-style summary). */
+    private void renderLaneStatus(GuiGraphics g) {
+        if (!(menu.getOrb() instanceof AdvancedEnergizingOrbBlockEntity adv)) {
+            return;
+        }
+        var status = adv.laneStatusSummary();
+        if (status.isEmpty()) {
+            return;
+        }
+        g.drawString(font, status, 8, topPos + 90, 0xFF808080, false);
     }
 
     private int guideY() {
@@ -136,10 +226,9 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     @Override
     protected void renderBg(GuiGraphics g, float partial, int mouseX, int mouseY) {
         int x = leftPos;
-        // Upgrade-card panel outside main GUI (right:-2 style) on Advanced/ME
+        // Upgrade-card panel outside main GUI (AE2 extra_panels.png chrome)
         if (menu.isAdvanced()) {
-            g.fill(x + 174, topPos + 18, x + 200, topPos + 18 + 6 * 18 + 4, 0xC0101010);
-            g.fill(x + 174, topPos + 18, x + 200, topPos + 19, 0xFF303030);
+            drawUpgradePanel(g, x, topPos, mouseX, mouseY);
         }
         int y = topPos;
         boolean adv = menu.isAdvanced();
@@ -225,6 +314,7 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         renderBackground(g);
         super.render(g, mouseX, mouseY, partial);
+        renderLaneStatus(g);
 
         long prog = menu.getGuiProgress();
         long max = menu.getGuiRecipeEnergy();

@@ -1,4 +1,4 @@
-﻿{
+{
   "variants": {
     "facing=up":    { "model": "applied_powah:block/ae_energizing_rod_basic", "x": 180 },
     "facing=down":  { "model": "applied_powah:block/ae_energizing_rod_basic" },

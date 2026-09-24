@@ -187,6 +187,118 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         return OrbTuning.cacheMax(BASE_CACHE_FE + rodCapacitySum(), energyCardCount());
     }
 
+    /** Keep ticking (and pulling) until the energy-cell cache is full. */
+    public boolean wantsCacheFill() {
+        return bufferFe < cacheMaxFe();
+    }
+
+    /**
+     * Virtual lanes beyond the physical input set (T cards). Lane 0 = physical slots.
+     * GTO-style status: how many lanes are live and what each is doing.
+     */
+    protected final CraftLane[] extraLanes = new CraftLane[8];
+
+    public int activeLanes() {
+        int n = containRecipe ? 1 : 0;
+        for (CraftLane lane : extraLanes) {
+            if (lane != null && lane.active) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** GTO ParallelProvider-style one-liner for the GUI. */
+    public String laneStatusSummary() {
+        int tCap = threadCap();
+        int p = parallelMultiplier();
+        int live = activeLanes();
+        StringBuilder sb = new StringBuilder();
+        sb.append("T ").append(live).append('/').append(tCap)
+                .append("  P ×").append(p);
+        for (int i = 0; i < extraLanes.length; i++) {
+            CraftLane lane = extraLanes[i];
+            if (lane == null || !lane.active) {
+                continue;
+            }
+            sb.append("  |").append(i + 2).append(": ").append(lane.progressPercent()).append('%');
+        }
+        return sb.toString();
+    }
+
+    /** Distribute incoming FE to the physical recipe then each extra lane. */
+    protected long fillLanes(long amount) {
+        // Always sweep ready extra lanes (even amount=0).
+        for (CraftLane lane : extraLanes) {
+            if (lane != null && lane.active && lane.ready()) {
+                completeLane(lane);
+            }
+        }
+        long left = amount > 0 ? fillRecipeEnergy(amount) : 0;
+        long rest = amount - left;
+        if (rest <= 0) {
+            return left;
+        }
+        for (CraftLane lane : extraLanes) {
+            if (lane == null || !lane.active || rest <= 0) {
+                continue;
+            }
+            long took = lane.fill(rest);
+            left += took;
+            rest -= took;
+            if (lane.ready()) {
+                completeLane(lane);
+            }
+        }
+        return left;
+    }
+
+    /** Finish one virtual lane: P copies of one input set. */
+    protected void completeLane(CraftLane lane) {
+        if (level == null || recipe == null || !lane.ready()) {
+            return;
+        }
+        ItemStack one = com.coala.appliedpowah.orb.EnergizingOrbLogic.resultOf(level, recipe);
+        if (one.isEmpty()) {
+            return;
+        }
+        ItemStack result = one.copy();
+        result.setCount(Math.min(OrbResultRules.MAX_SLOT, one.getCount() * lane.batch));
+        if (!canSettleResult(result)) {
+            return;
+        }
+        boolean saved = completing;
+        completing = true;
+        try {
+            lane.clear();
+            settleResult(result);
+        } finally {
+            completing = saved;
+        }
+        setChanged();
+        markForUpdate();
+    }
+
+    /** Try to park a full input set on a free virtual lane. */
+    public boolean startExtraLane(java.util.List<ItemStack> set, long eNeed, int parallel) {
+        for (int i = 0; i < extraLanes.length; i++) {
+            if (i >= threadCap() - 1) {
+                return false;
+            }
+            CraftLane lane = extraLanes[i];
+            if (lane == null) {
+                lane = new CraftLane();
+                extraLanes[i] = lane;
+            }
+            if (lane.active) {
+                continue;
+            }
+            lane.start(set, eNeed, parallel, recipe != null ? String.valueOf(recipe.getId()) : "");
+            return true;
+        }
+        return false;
+    }
+
     /** Overflow drain bookkeeping (rod pull-out leaves FE above cache cap). */
     private int overflowTick;
 
@@ -255,7 +367,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         if (level == null || amount <= 0 || completing) {
             return 0;
         }
-        long filled = fillRecipeEnergy(amount);
+        long filled = fillLanes(amount);
         long rest = amount - filled;
         if (rest > 0) {
             long room = OrbEnergyMath.cacheRoom(bufferFe, cacheMaxFe());
@@ -357,10 +469,12 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         }
         // Split: recipe progress first, cache keeps the rest; overflow sheds cache only.
         feedProgressFromBuffer();
+        fillLanes(0); // complete any already-ready extra lanes
         if (recipe == null && !completing) {
             checkRecipe();
         }
         feedProgressFromBuffer();
+        fillLanes(0);
         if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
             completeIfPossible();
         }
@@ -420,7 +534,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
 
     @Override
     public int getEnergyStored() {
-        return (int) Math.min(Integer.MAX_VALUE, bufferFe);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, bufferFe));
     }
 
     @Override

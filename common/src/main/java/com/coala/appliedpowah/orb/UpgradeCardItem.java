@@ -36,6 +36,20 @@ public class UpgradeCardItem extends Item {
         return 1;
     }
 
+    @Override
+    public void appendHoverText(ItemStack stack, @org.jetbrains.annotations.Nullable net.minecraft.world.level.Level level,
+            java.util.List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
+        super.appendHoverText(stack, level, tooltip, flag);
+        if (kind == Kind.THREAD) {
+            tooltip.add(net.minecraft.network.chat.Component.translatable(
+                    "applied_powah.tooltip.card.thread", value));
+        } else {
+            tooltip.add(net.minecraft.network.chat.Component.translatable(
+                    "applied_powah.tooltip.card.parallel", value));
+        }
+        tooltip.add(net.minecraft.network.chat.Component.translatable("applied_powah.tooltip.card.slot"));
+    }
+
     public static boolean isThreadCard(ItemStack stack) {
         return !stack.isEmpty() && stack.getItem() instanceof UpgradeCardItem c && c.kind == Kind.THREAD;
     }

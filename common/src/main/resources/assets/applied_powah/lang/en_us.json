@@ -58,5 +58,12 @@
   "item.applied_powah.parallel_card_x6": "Parallel Card ×6",
   "item.applied_powah.parallel_card_x8": "Parallel Card ×8",
   "applied_powah.gui.patterns": "Patterns",
-  "applied_powah.gui.back_to_orb": "Back to orb"
+  "applied_powah.gui.back_to_orb": "Back to orb",
+  "applied_powah.gui.compatible_upgrades": "Compatible Upgrades:",
+  "applied_powah.gui.compatible_upgrade.thread": "Thread Card (max 1)",
+  "applied_powah.gui.compatible_upgrade.parallel": "Parallel Card (max 1)",
+  "applied_powah.gui.compatible_upgrade.energy": "Energy Card (max 4)",
+  "applied_powah.tooltip.card.thread": "Thread +%s (cap 9 threads)",
+  "applied_powah.tooltip.card.parallel": "Parallel ×%s (%s sets per complete)",
+  "applied_powah.tooltip.card.slot": "Place in orb upgrade slots"
 }

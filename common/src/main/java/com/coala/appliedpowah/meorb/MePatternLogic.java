@@ -7,6 +7,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
+import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import com.coala.appliedpowah.orb.EnergizingOrbLogic;
 import com.coala.appliedpowah.orb.OrbCraftGate;
 import net.minecraft.world.item.ItemStack;
@@ -21,9 +22,10 @@ public class MePatternLogic extends PatternProviderLogic {
 
     private final MeEnergizingOrbBlockEntity meOrb;
 
-    public MePatternLogic(IManagedGridNode mainNode, MeEnergizingOrbBlockEntity host, int patternSlots) {
+    public MePatternLogic(IManagedGridNode mainNode, PatternProviderLogicHost host,
+            MeEnergizingOrbBlockEntity meOrb, int patternSlots) {
         super(mainNode, host, patternSlots);
-        this.meOrb = host;
+        this.meOrb = meOrb;
     }
 
     @Override
@@ -51,7 +53,6 @@ public class MePatternLogic extends PatternProviderLogic {
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
-        // AE2 blocking: target already holds a pattern input → refuse (do not mix sets).
         if (OrbCraftGate.blocksPush(isBlocking(), craftSlotsContainPatternInput())) {
             return false;
         }
@@ -61,11 +62,6 @@ public class MePatternLogic extends PatternProviderLogic {
         return meOrb.acceptCpuPatternInputs(inputHolder);
     }
 
-    /**
-     * Target inventory for blocking = orb craft slots 1..6.
-     * Match AE2 {@code containsPatternInput}: any available pattern's input key
-     * (secondary dropped) present in the target.
-     */
     private boolean craftSlotsContainPatternInput() {
         var inv = meOrb.getInv();
         int slots = Math.min(EnergizingOrbLogic.SLOTS, inv.getSlots());

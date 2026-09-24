@@ -68,10 +68,11 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             }
             count += AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
             // Universal upgrade cards — outside main GUI (right of 176), 6 vertical slots
+            // Matches EnergizingOrbScreen.drawUpgradePanel (extra_panels chrome).
             ItemStackHandler ups = aorb.getUpgradeInv();
             for (int i = 0; i < UpgradeCardInv.SLOTS; i++) {
                 final int uidx = i;
-                this.addSlot(new SlotItemHandler(ups, i, 180, 22 + i * 18) {
+                this.addSlot(new SlotItemHandler(ups, i, 181, 25 + i * 18) {
                     @Override
                     public boolean mayPlace(ItemStack stack) {
                         return ups.isItemValid(uidx, stack);
@@ -222,5 +223,18 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
 
     public EnergizingOrbBlockEntity getOrb() {
         return orb;
+    }
+
+    /** Upgrade-card slot (Advanced/ME only) for screen hover. */
+    public Slot getUpgradeSlot(int index) {
+        if (!(orb instanceof AdvancedEnergizingOrbBlockEntity)) {
+            return null;
+        }
+        int base = 7 + AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
+        int idx = base + index;
+        if (idx < 0 || idx >= slots.size()) {
+            return null;
+        }
+        return slots.get(idx);
     }
 }

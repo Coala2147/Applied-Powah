@@ -349,15 +349,21 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     }
 
     /**
-     * Place result: provider return first, remainder to OUTPUT.
-     * Must only be called after {@link #canSettleResult} returned true.
+     * Place result: provider return first (only when autoExport ON — that path
+     * lands in the adjacent provider's returnInv and AE2 injects it to the
+     * network), remainder to OUTPUT.
      */
     protected void settleResult(ItemStack result) {
         try {
             if (result == null || result.isEmpty()) {
                 return;
             }
-            ItemStack rest = providerReturnSide != null ? doProviderReturn(result) : result;
+            ItemStack rest = result;
+            if (autoExportEnabled() && providerReturnSide != null) {
+                rest = doProviderReturn(result);
+            } else {
+                providerReturnSide = null;
+            }
             if (!rest.isEmpty() && !tryPlaceResult(rest)) {
                 AppliedPowah.LOG.error("Orb settle lost product {} x{} at {}", rest.getItem(), rest.getCount(), worldPosition);
                 Containers_drop(rest);
@@ -370,6 +376,9 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     /** Simulate provider return remainder (must not mutate any inventory). */
     protected ItemStack simulateProviderReturn(ItemStack result) {
+        if (!autoExportEnabled() || providerReturnSide == null) {
+            return result;
+        }
         return providerReturn(result, Actionable.SIMULATE);
     }
 
@@ -504,6 +513,10 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
             return false;
         }
         int sets = singles.size() / setSize;
+        // Physical slots busy → park extra threads on virtual lanes (T cards).
+        if (containRecipe || empty < setSize) {
+            return tryParkExtraLanes(singles, setSize, sets);
+        }
         if (setSize > empty || !OrbCraftGate.canAcceptFullSet(empty, setSize)) {
             return false;
         }
@@ -540,6 +553,26 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         setChanged();
         markForUpdate();
         return true;
+    }
+
+    /** Extra threads when the physical set is busy (Advanced virtual lanes). */
+    private boolean tryParkExtraLanes(List<AEItemKey> singles, int setSize, int sets) {
+        if (!(this instanceof AdvancedEnergizingOrbBlockEntity adv)) {
+            return false;
+        }
+        int parked = 0;
+        long e0 = recipe != null ? recipe.getEnergy() : 1L;
+        long eNeed = OrbTuning.eNeed(e0, adv.parallelMultiplier(), 1);
+        for (int s = 0; s < sets; s++) {
+            List<ItemStack> one = new ArrayList<>(setSize);
+            for (int k = 0; k < setSize; k++) {
+                one.add(singles.get(s * setSize + k).toStack(1));
+            }
+            if (adv.startExtraLane(one, eNeed, adv.parallelMultiplier())) {
+                parked++;
+            }
+        }
+        return parked > 0;
     }
 
     @Nullable
@@ -749,7 +782,8 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 20, false, false);
+        // canBeAlerted=true — inventory / returnInv changes call alertDevice.
+        return new TickingRequest(1, 20, false, true);
     }
 
     @Override
@@ -768,10 +802,12 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         autoExportTick(node);
         boolean exported = pushOutToMe(node);
         updateWarning();
+        boolean cacheNeedsFill = this instanceof AdvancedEnergizingOrbBlockEntity adv && adv.wantsCacheFill();
         boolean work = containRecipe
                 || !inv.getStackInSlot(EnergizingOrbLogic.OUTPUT).isEmpty()
                 || autoExportEnabled()
-                || (this instanceof AdvancedEnergizingOrbBlockEntity adv && adv.rodsPresent());
+                || cacheNeedsFill
+                || (this instanceof AdvancedEnergizingOrbBlockEntity adv2 && adv2.rodsPresent());
         return work || exported ? TickRateModulation.URGENT : TickRateModulation.SLEEP;
     }
 

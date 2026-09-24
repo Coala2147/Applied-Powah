@@ -11,7 +11,6 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
-import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.me.helpers.MachineSource;
 import appeng.menu.locator.MenuLocator;
 import appeng.util.SettingsFrom;
@@ -37,14 +36,19 @@ import java.util.List;
  * ME 充能台 / ME Energizing Orb — 机体复用高级充能台，样板页 EAE 1.21.1，
  * 自合成引擎照搬 Mek-Energistics（{@link MeSelfCraftSettings} / {@link MeInputRouter}，
  * 命名空间 {@code com.coala.appliedpowah.meorb}）。
+ *
+ * <p>Intentionally <b>not</b> a {@code PatternProviderLogicHost} on the BE class:
+ * AE2 skips grid-adjacent faces whose owner is another pattern provider when
+ * deciding push targets — that blocked an external PatternProvider stacked under
+ * this orb. Host duties live in {@link MePatternHost}.</p>
  */
-public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
-        implements PatternProviderLogicHost {
+public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity {
 
     public static final int PATTERN_SLOTS = 36;
     public static final int CRAFT_SLOTS = 6;
 
-    private final PatternProviderLogic patterns = new MePatternLogic(getMainNode(), this, PATTERN_SLOTS);
+    private MePatternHost patternHost;
+    private PatternProviderLogic patterns;
     private final MeSelfCraftSettings selfCraft = new MeSelfCraftSettings();
     private final MachineSource actionSource = new MachineSource(this);
     /**
@@ -57,76 +61,41 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super(type, pos, state);
         getMainNode().setFlags();
         getMainNode().addService(IGridTickable.class, this);
+        // Host must not be the BE (see class javadoc) — pattern logic wraps MePatternHost.
+        this.patternHost = new MePatternHost(this, null);
+        this.patterns = new MePatternLogic(getMainNode(), patternHost, this, PATTERN_SLOTS);
     }
 
-    @Override
+    /** For {@link MePatternHost}. */
     public PatternProviderLogic getLogic() {
         return patterns;
     }
 
-    @Override
-    public BlockEntity getBlockEntity() {
-        return this;
-    }
-
-    @Override
-    public void saveChanges() {
+    /** For {@link MePatternHost}. */
+    public void saveChangesFromPattern() {
         setChanged();
         markForUpdate();
     }
 
-    @Override
-    public EnumSet<Direction> getTargets() {
-        return EnumSet.noneOf(Direction.class);
-    }
-
-    @Override
-    public AEItemKey getTerminalIcon() {
-        return AEItemKey.of(new ItemStack(APOrbs.ME_ORB_ITEM.get()));
-    }
-
-    @Override
-    public ItemStack getMainMenuIcon() {
-        return new ItemStack(APOrbs.ME_ORB_ITEM.get());
-    }
-
-    @Override
-    public int getPriority() {
-        return patterns.getPriority();
-    }
-
-    @Override
-    public void setPriority(int priority) {
-        patterns.setPriority(priority);
-    }
-
-    @Override
-    public void exportSettings(SettingsFrom mode, CompoundTag output, @Nullable Player player) {
-        super.exportSettings(mode, output, player);
-        if (mode == SettingsFrom.MEMORY_CARD) {
-            patterns.exportSettings(output);
-        }
-    }
-
-    @Override
-    public void importSettings(SettingsFrom mode, CompoundTag input, @Nullable Player player) {
-        super.importSettings(mode, input, player);
-        if (mode == SettingsFrom.MEMORY_CARD) {
-            patterns.importSettings(input, player);
-        }
+    public MePatternHost getPatternHost() {
+        return patternHost;
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        patterns.updatePatterns();
+        if (patterns != null) {
+            patterns.updatePatterns();
+        }
     }
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         try {
-            patterns.onMainNodeStateChanged();
+            if (patterns != null) {
+                patterns.onMainNodeStateChanged();
+            }
         } catch (Exception e) {
             AppliedPowah.LOG.debug("patterns.onMainNodeStateChanged: {}", e.toString());
         }
@@ -249,13 +218,12 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     /**
-     * CPU settlement: returnInv first (AE2 PatternProvider protocol), remainder
-     * via provider return / OUTPUT. Never overwrite OUTPUT.
-     * Empty leftover after returnInv means success.
+     * CPU settlement: only when autoExport is ON do products enter returnInv
+     * (AE2 protocol). When OFF they land in OUTPUT and stay — never auto-return.
      */
     @Override
     protected boolean canSettleResult(ItemStack result) {
-        if (!inputFromCpuOrder) {
+        if (!inputFromCpuOrder || !autoExportEnabled()) {
             return super.canSettleResult(result);
         }
         ItemStack afterCpu = simulateCpuReturn(result);
@@ -267,8 +235,17 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
 
     @Override
     protected void settleResult(ItemStack result) {
-        if (!inputFromCpuOrder) {
-            super.settleResult(result);
+        if (!inputFromCpuOrder || !autoExportEnabled()) {
+            // OFF: never touch returnInv / provider returnInv (those auto-inject).
+            inputFromCpuOrder = false;
+            providerReturnSide = null;
+            if (!tryPlaceResult(result)) {
+                AppliedPowah.LOG.error(
+                        "ME orb settle lost product {} x{} at {} (autoExport off, OUTPUT full)",
+                        result.getItem(), result.getCount(), worldPosition);
+                net.minecraft.world.Containers.dropItemStack(
+                        level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), result);
+            }
             return;
         }
         inputFromCpuOrder = false;
@@ -332,7 +309,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(1, 20, false, false);
+        // canBeAlerted=true so returnInv / inventory changes can wake us.
+        return new TickingRequest(1, 20, false, true);
     }
 
     @Override
@@ -347,9 +325,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
 
     /**
      * returnInv → network (AE2 PatternProvider returnInv.injectIntoNetwork).
-     * PatternProviderLogic's own Ticker is shadowed by this BE's IGridTickable —
-     * this is the single inject path. Gated by autoExport: OFF means no return
-     * at all (CPU order hangs by design; turning the switch back on resumes).
+     * Gated by autoExport: OFF means nothing leaves for the network (CPU order
+     * hangs by design; flipping the switch back on resumes).
      */
     private void drainReturn(IGridNode node) {
         if (!autoExportEnabled()) {
