@@ -17,6 +17,8 @@ import net.minecraft.world.item.ItemStack;
  *
  * 阻挡模式对齐 AE2 {@code PatternProviderLogic.pushPattern}：
  * isBlocking 且目标（此处 = 台输入槽 1..6）里已出现任一样板原料 key → 拒绝再投。
+ *
+ * <p>{@code host} is {@link MeOrbPatternHost}, not the BE — see that class.</p>
  */
 public class MePatternLogic extends PatternProviderLogic {
 

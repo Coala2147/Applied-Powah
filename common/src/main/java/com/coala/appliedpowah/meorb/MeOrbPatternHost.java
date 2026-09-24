@@ -1,5 +1,6 @@
 package com.coala.appliedpowah.meorb;
 
+import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.stacks.AEItemKey;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
@@ -13,22 +14,27 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import java.util.EnumSet;
 
 /**
- * PatternProvider host that is <b>not</b> the BlockEntity.
+ * AE2 {@link PatternProviderLogicHost} view of the ME orb.
  *
- * <p>AE2 {@code PatternProviderLogic#getActiveSides} drops any face that has a grid
- * connection to another {@code PatternProviderLogicHost}. If the ME orb itself
- * implements that interface, an external PatternProvider stacked under it will
- * refuse to push patterns. This delegate keeps the interface off the BE class
- * while still hosting {@link MePatternLogic}.</p>
+ * <p>Intentionally <b>not</b> implemented on the BlockEntity (Mek-Energistics
+ * pattern). {@code PatternProviderLogic#getActiveSides} skips faces whose grid
+ * neighbor owner is a {@code PatternProviderLogicHost} — that made an external
+ * PatternProvider refuse to push into this orb. The grid node owner is the BE,
+ * so the BE must not implement that interface. Menu binding uses
+ * {@code MeEnergizingOrbBlockEntity.class} and wraps via {@link #of}.</p>
  */
-final class MePatternHost implements PatternProviderLogicHost {
+final class MeOrbPatternHost implements PatternProviderLogicHost {
 
     private final MeEnergizingOrbBlockEntity orb;
     private PatternProviderLogic logic;
 
-    MePatternHost(MeEnergizingOrbBlockEntity orb, PatternProviderLogic logic) {
+    private MeOrbPatternHost(MeEnergizingOrbBlockEntity orb, PatternProviderLogic logic) {
         this.orb = orb;
         this.logic = logic;
+    }
+
+    static MeOrbPatternHost of(MeEnergizingOrbBlockEntity orb, PatternProviderLogic logic) {
+        return new MeOrbPatternHost(orb, logic);
     }
 
     @Override
@@ -48,7 +54,8 @@ final class MePatternHost implements PatternProviderLogicHost {
 
     @Override
     public void saveChanges() {
-        orb.saveChangesFromPattern();
+        orb.setChanged();
+        orb.markForUpdate();
     }
 
     @Override

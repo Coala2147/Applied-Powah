@@ -11,6 +11,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
+import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.me.helpers.MachineSource;
 import appeng.menu.locator.MenuLocator;
 import appeng.util.SettingsFrom;
@@ -37,17 +38,17 @@ import java.util.List;
  * 自合成引擎照搬 Mek-Energistics（{@link MeSelfCraftSettings} / {@link MeInputRouter}，
  * 命名空间 {@code com.coala.appliedpowah.meorb}）。
  *
- * <p>Intentionally <b>not</b> a {@code PatternProviderLogicHost} on the BE class:
- * AE2 skips grid-adjacent faces whose owner is another pattern provider when
- * deciding push targets — that blocked an external PatternProvider stacked under
- * this orb. Host duties live in {@link MePatternHost}.</p>
+ * <p>BE does <b>not</b> implement AE2 {@code PatternProviderLogicHost} (Mek style).
+ * Grid-node owner must stay free of that interface or an external PatternProvider
+ * will skip this face in {@code getActiveSides}. Pattern host is
+ * {@link MeOrbPatternHost}; the pattern menu binds this BE class.</p>
  */
 public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity {
 
     public static final int PATTERN_SLOTS = 36;
     public static final int CRAFT_SLOTS = 6;
 
-    private MePatternHost patternHost;
+    private MeOrbPatternHost patternHost;
     private PatternProviderLogic patterns;
     private final MeSelfCraftSettings selfCraft = new MeSelfCraftSettings();
     private final MachineSource actionSource = new MachineSource(this);
@@ -61,41 +62,35 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super(type, pos, state);
         getMainNode().setFlags();
         getMainNode().addService(IGridTickable.class, this);
-        // Host must not be the BE (see class javadoc) — pattern logic wraps MePatternHost.
-        this.patternHost = new MePatternHost(this, null);
+        this.patternHost = MeOrbPatternHost.of(this, null);
         this.patterns = new MePatternLogic(getMainNode(), patternHost, this, PATTERN_SLOTS);
     }
 
-    /** For {@link MePatternHost}. */
+    /** Menu / logic host view — not the BE (see class javadoc). */
+    public PatternProviderLogicHost patternHost() {
+        return patternHost;
+    }
+
     public PatternProviderLogic getLogic() {
         return patterns;
     }
 
-    /** For {@link MePatternHost}. */
-    public void saveChangesFromPattern() {
+    public void saveChanges() {
         setChanged();
         markForUpdate();
-    }
-
-    public MePatternHost getPatternHost() {
-        return patternHost;
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        if (patterns != null) {
-            patterns.updatePatterns();
-        }
+        patterns.updatePatterns();
     }
 
     @Override
     public void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         try {
-            if (patterns != null) {
-                patterns.onMainNodeStateChanged();
-            }
+            patterns.onMainNodeStateChanged();
         } catch (Exception e) {
             AppliedPowah.LOG.debug("patterns.onMainNodeStateChanged: {}", e.toString());
         }

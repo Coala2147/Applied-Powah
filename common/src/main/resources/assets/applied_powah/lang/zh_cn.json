@@ -58,10 +58,10 @@
   "applied_powah.gui.patterns": "样板",
   "applied_powah.gui.back_to_orb": "返回充能台",
   "applied_powah.gui.compatible_upgrades": "可用升级：",
-  "applied_powah.gui.compatible_upgrade.thread": "线程卡 (最多 1)",
-  "applied_powah.gui.compatible_upgrade.parallel": "并行卡 (最多 1)",
-  "applied_powah.gui.compatible_upgrade.energy": "能量卡 (最多 4)",
-  "applied_powah.tooltip.card.thread": "线程 +%s（至多 9 线程）",
-  "applied_powah.tooltip.card.parallel": "并行 ×%s（每完成 %s 套）",
+  "applied_powah.gui.compatible_upgrade.thread": "线程卡 (1)",
+  "applied_powah.gui.compatible_upgrade.parallel": "并行卡 (1)",
+  "applied_powah.gui.compatible_upgrade.energy": "能量卡 (4)",
+  "applied_powah.tooltip.card.thread": "线程 +%s",
+  "applied_powah.tooltip.card.parallel": "并行 ×%s",
   "applied_powah.tooltip.card.slot": "放入充能台升级槽"
 }

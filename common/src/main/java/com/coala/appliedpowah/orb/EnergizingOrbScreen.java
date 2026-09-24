@@ -95,55 +95,101 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     }
 
     /**
-     * AE2 UpgradesPanel-style column: extra_panels.png slot chrome + empty
-     * BACKGROUND_UPGRADE icon (states.png 240,208).
+     * AE2 UpgradesPanel.drawSlot UV model (extra_panels.png 128×128):
+     * interior src(7,7,18,18); borders grow the blit by PADDING=7.
+     * 1×6 column: L+R on every row; T on first; B on last.
      */
     private void drawUpgradePanel(GuiGraphics g, int x, int y, int mouseX, int mouseY) {
-        int slots = UpgradeCardInv.SLOTS;
-        int panelW = UP_PAD * 2 + UP_SLOT;
-        int panelH = UP_PAD * 2 + slots * UP_SLOT;
-        // outer border pieces from extra_panels.png (128×128), slot cell at src(7,7,18,18)
-        g.blit(TEX_EXTRA_PANELS, x + UP_X, y + UP_Y, 0, 0, UP_PAD, UP_PAD, 128, 128);
-        g.blit(TEX_EXTRA_PANELS, x + UP_X + UP_PAD + UP_SLOT, y + UP_Y, 25, 0, UP_PAD, UP_PAD, 128, 128);
-        g.blit(TEX_EXTRA_PANELS, x + UP_X, y + UP_Y + UP_PAD + slots * UP_SLOT, 0, 25, UP_PAD, UP_PAD, 128, 128);
-        g.blit(TEX_EXTRA_PANELS, x + UP_X + UP_PAD + UP_SLOT, y + UP_Y + UP_PAD + slots * UP_SLOT,
-                25, 25, UP_PAD, UP_PAD, 128, 128);
-        // side rails
+        final int pad = UP_PAD;
+        final int slot = UP_SLOT;
+        final int slots = UpgradeCardInv.SLOTS;
+        final int slotOriginX = x + UP_X + pad;
+        final int slotOriginY = y + UP_Y + pad;
+        int panelW = pad * 2 + slot;
+        int panelH = pad * 2 + slots * slot;
+
         for (int i = 0; i < slots; i++) {
-            g.blit(TEX_EXTRA_PANELS, x + UP_X + UP_PAD, y + UP_Y + UP_PAD + i * UP_SLOT, 7, 7, UP_SLOT, UP_SLOT, 128, 128);
-            // empty upgrade icon
-            var slot = menu.getUpgradeSlot(i);
-            if (slot != null && !slot.hasItem()) {
-                g.blit(TEX_STATES_AE2,
-                        x + UP_X + UP_PAD + 1, y + UP_Y + UP_PAD + i * UP_SLOT + 1,
-                        240, 208, 16, 16, 256, 256);
+            int row = i % 8;
+            int col = i / 8;
+            int sx = slotOriginX + col * slot;
+            int sy = slotOriginY + row * slot;
+            boolean borderLeft = col == 0;
+            boolean borderTop = row == 0;
+            boolean lastSlot = i + 1 >= slots;
+            boolean lastRow = row + 1 >= 8;
+            boolean borderBottom = lastRow || lastSlot;
+            boolean borderRight = i >= slots - 8; // single column → always
+            drawUpgradeSlotCell(g, sx, sy, borderLeft, borderTop, borderRight, borderBottom);
+
+            var menuSlot = menu.getUpgradeSlot(i);
+            if (menuSlot != null && !menuSlot.hasItem()) {
+                // Icon.BACKGROUND_UPGRADE (240,208) 16×16 from ae2 states.png
+                g.blit(TEX_STATES_AE2, sx + 1, sy + 1, 240, 208, 16, 16, 256, 256);
             }
         }
-        // hover tracking
+
         hoverUpgradePanel = false;
         hoverUpgradeSlot = -1;
         int mx = mouseX - x;
         int my = mouseY - y;
         if (mx >= UP_X && mx < UP_X + panelW && my >= UP_Y && my < UP_Y + panelH) {
             hoverUpgradePanel = true;
-            int row = (my - UP_Y - UP_PAD) / UP_SLOT;
+            int row = (my - UP_Y - pad) / slot;
             if (row >= 0 && row < slots) {
                 hoverUpgradeSlot = row;
             }
         }
     }
 
+    /** Copy of AE2 UpgradesPanel.drawSlot (exact UV grow). */
+    private void drawUpgradeSlotCell(GuiGraphics g, int x, int y,
+            boolean borderLeft, boolean borderTop, boolean borderRight, boolean borderBottom) {
+        final int pad = UP_PAD;
+        final int size = UP_SLOT;
+        int srcX = pad;
+        int srcY = pad;
+        int srcW = size;
+        int srcH = size;
+        int destX = x;
+        int destY = y;
+        if (borderLeft) {
+            destX -= pad;
+            srcX = 0;
+            srcW += pad;
+        }
+        if (borderRight) {
+            srcW += pad;
+        }
+        if (borderTop) {
+            destY -= pad;
+            srcY = 0;
+            srcH += pad;
+        }
+        if (borderBottom) {
+            srcH += pad;
+        }
+        g.blit(TEX_EXTRA_PANELS, destX, destY, srcX, srcY, srcW, srcH, 128, 128);
+    }
+
     @Override
     protected void renderTooltip(GuiGraphics g, int mx, int my) {
         if (menu.isAdvanced() && hoverUpgradePanel) {
+            // AE2 UpgradeableScreen: header WHITE, entries GRAY via gui.ae2.CompatibleUpgrade "%s (%s)"
             var lines = new java.util.ArrayList<net.minecraft.network.chat.Component>();
-            lines.add(net.minecraft.network.chat.Component.translatable("applied_powah.gui.compatible_upgrades"));
+            lines.add(net.minecraft.network.chat.Component.translatable("gui.ae2.CompatibleUpgrades")
+                    .withStyle(net.minecraft.ChatFormatting.WHITE));
             lines.add(net.minecraft.network.chat.Component.translatable(
-                    "applied_powah.gui.compatible_upgrade.thread"));
+                    "gui.ae2.CompatibleUpgrade",
+                    net.minecraft.network.chat.Component.translatable("item.applied_powah.thread_card_p1"),
+                    1).withStyle(net.minecraft.ChatFormatting.GRAY));
             lines.add(net.minecraft.network.chat.Component.translatable(
-                    "applied_powah.gui.compatible_upgrade.parallel"));
+                    "gui.ae2.CompatibleUpgrade",
+                    net.minecraft.network.chat.Component.translatable("item.applied_powah.parallel_card_x2"),
+                    1).withStyle(net.minecraft.ChatFormatting.GRAY));
             lines.add(net.minecraft.network.chat.Component.translatable(
-                    "applied_powah.gui.compatible_upgrade.energy"));
+                    "gui.ae2.CompatibleUpgrade",
+                    net.minecraft.network.chat.Component.translatable("item.ae2.energy_card"),
+                    UpgradeCardInv.ENERGY_MAX).withStyle(net.minecraft.ChatFormatting.GRAY));
             if (hoverUpgradeSlot >= 0) {
                 var slot = menu.getUpgradeSlot(hoverUpgradeSlot);
                 if (slot != null && slot.hasItem()) {
