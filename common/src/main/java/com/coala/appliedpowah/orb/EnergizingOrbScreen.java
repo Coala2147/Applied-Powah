@@ -103,8 +103,8 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         final int pad = UP_PAD;
         final int slot = UP_SLOT;
         final int slots = UpgradeCardInv.SLOTS;
-        final int slotOriginX = x + UP_X + pad;
-        final int slotOriginY = y + UP_Y + pad;
+        final int slotOriginX = x + UP_X + pad + 1;
+        final int slotOriginY = y + UP_Y + pad + 1;
         int panelW = pad * 2 + slot;
         int panelH = pad * 2 + slots * slot;
 
@@ -174,17 +174,17 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     @Override
     protected void renderTooltip(GuiGraphics g, int mx, int my) {
         if (menu.isAdvanced() && hoverUpgradePanel) {
-            // AE2 UpgradeableScreen: header WHITE, entries GRAY via gui.ae2.CompatibleUpgrade "%s (%s)"
+            // AE2: header WHITE, entries "%s (%s)" = family name + max count (not tier)
             var lines = new java.util.ArrayList<net.minecraft.network.chat.Component>();
             lines.add(net.minecraft.network.chat.Component.translatable("gui.ae2.CompatibleUpgrades")
                     .withStyle(net.minecraft.ChatFormatting.WHITE));
             lines.add(net.minecraft.network.chat.Component.translatable(
                     "gui.ae2.CompatibleUpgrade",
-                    net.minecraft.network.chat.Component.translatable("item.applied_powah.thread_card_p1"),
+                    net.minecraft.network.chat.Component.translatable("applied_powah.upgrade.family.thread"),
                     1).withStyle(net.minecraft.ChatFormatting.GRAY));
             lines.add(net.minecraft.network.chat.Component.translatable(
                     "gui.ae2.CompatibleUpgrade",
-                    net.minecraft.network.chat.Component.translatable("item.applied_powah.parallel_card_x2"),
+                    net.minecraft.network.chat.Component.translatable("applied_powah.upgrade.family.parallel"),
                     1).withStyle(net.minecraft.ChatFormatting.GRAY));
             lines.add(net.minecraft.network.chat.Component.translatable(
                     "gui.ae2.CompatibleUpgrade",

@@ -40,18 +40,16 @@ public class UpgradeCardItem extends Item {
     public void appendHoverText(ItemStack stack, @org.jetbrains.annotations.Nullable net.minecraft.world.level.Level level,
             java.util.List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
         super.appendHoverText(stack, level, tooltip, flag);
-        // AE2 Tooltips.NORMAL_TOOLTIP_TEXT: GRAY, non-italic
-        if (kind == Kind.THREAD) {
-            tooltip.add(net.minecraft.network.chat.Component.translatable(
-                    "applied_powah.tooltip.card.thread", value)
-                    .withStyle(net.minecraft.ChatFormatting.GRAY));
-        } else {
-            tooltip.add(net.minecraft.network.chat.Component.translatable(
-                    "applied_powah.tooltip.card.parallel", value, value)
+        // AE2 UpgradeCardItem: "Supported by:" then machine names (Tooltips.NORMAL_TOOLTIP_TEXT)
+        tooltip.add(net.minecraft.network.chat.Component.translatable("gui.tooltips.ae2.SupportedBy")
+                .withStyle(net.minecraft.ChatFormatting.GRAY));
+        for (var key : new String[] {
+                "block.applied_powah.fluix_energizing_orb",
+                "block.applied_powah.advanced_energizing_orb",
+                "block.applied_powah.me_energizing_orb"}) {
+            tooltip.add(net.minecraft.network.chat.Component.translatable(key)
                     .withStyle(net.minecraft.ChatFormatting.GRAY));
         }
-        tooltip.add(net.minecraft.network.chat.Component.translatable("applied_powah.tooltip.card.slot")
-                .withStyle(net.minecraft.ChatFormatting.GRAY));
     }
 
     public static boolean isThreadCard(ItemStack stack) {

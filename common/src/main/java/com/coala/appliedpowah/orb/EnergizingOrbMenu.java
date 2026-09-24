@@ -72,7 +72,7 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
             ItemStackHandler ups = aorb.getUpgradeInv();
             for (int i = 0; i < UpgradeCardInv.SLOTS; i++) {
                 final int uidx = i;
-                this.addSlot(new SlotItemHandler(ups, i, 181, 25 + i * 18) {
+                this.addSlot(new SlotItemHandler(ups, i, 182, 26 + i * 18) {
                     @Override
                     public boolean mayPlace(ItemStack stack) {
                         return ups.isItemValid(uidx, stack);

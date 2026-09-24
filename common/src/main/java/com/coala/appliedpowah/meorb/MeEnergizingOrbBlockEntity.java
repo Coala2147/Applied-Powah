@@ -37,19 +37,14 @@ import java.util.List;
  * ME 充能台 / ME Energizing Orb — 机体复用高级充能台，样板页 EAE 1.21.1，
  * 自合成引擎照搬 Mek-Energistics（{@link MeSelfCraftSettings} / {@link MeInputRouter}，
  * 命名空间 {@code com.coala.appliedpowah.meorb}）。
- *
- * <p>BE does <b>not</b> implement AE2 {@code PatternProviderLogicHost} (Mek style).
- * Grid-node owner must stay free of that interface or an external PatternProvider
- * will skip this face in {@code getActiveSides}. Pattern host is
- * {@link MeOrbPatternHost}; the pattern menu binds this BE class.</p>
  */
-public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity {
+public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
+        implements PatternProviderLogicHost {
 
     public static final int PATTERN_SLOTS = 36;
     public static final int CRAFT_SLOTS = 6;
 
-    private MeOrbPatternHost patternHost;
-    private PatternProviderLogic patterns;
+    private final PatternProviderLogic patterns = new MePatternLogic(getMainNode(), this, PATTERN_SLOTS);
     private final MeSelfCraftSettings selfCraft = new MeSelfCraftSettings();
     private final MachineSource actionSource = new MachineSource(this);
     /**
@@ -62,22 +57,63 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super(type, pos, state);
         getMainNode().setFlags();
         getMainNode().addService(IGridTickable.class, this);
-        this.patternHost = MeOrbPatternHost.of(this, null);
-        this.patterns = new MePatternLogic(getMainNode(), patternHost, this, PATTERN_SLOTS);
     }
 
-    /** Menu / logic host view — not the BE (see class javadoc). */
-    public PatternProviderLogicHost patternHost() {
-        return patternHost;
-    }
-
+    @Override
     public PatternProviderLogic getLogic() {
         return patterns;
     }
 
+    @Override
+    public BlockEntity getBlockEntity() {
+        return this;
+    }
+
+    @Override
     public void saveChanges() {
         setChanged();
         markForUpdate();
+    }
+
+    @Override
+    public EnumSet<Direction> getTargets() {
+        return EnumSet.noneOf(Direction.class);
+    }
+
+    @Override
+    public AEItemKey getTerminalIcon() {
+        return AEItemKey.of(new ItemStack(APOrbs.ME_ORB_ITEM.get()));
+    }
+
+    @Override
+    public ItemStack getMainMenuIcon() {
+        return new ItemStack(APOrbs.ME_ORB_ITEM.get());
+    }
+
+    @Override
+    public int getPriority() {
+        return patterns.getPriority();
+    }
+
+    @Override
+    public void setPriority(int priority) {
+        patterns.setPriority(priority);
+    }
+
+    @Override
+    public void exportSettings(SettingsFrom mode, CompoundTag output, @Nullable Player player) {
+        super.exportSettings(mode, output, player);
+        if (mode == SettingsFrom.MEMORY_CARD) {
+            patterns.exportSettings(output);
+        }
+    }
+
+    @Override
+    public void importSettings(SettingsFrom mode, CompoundTag input, @Nullable Player player) {
+        super.importSettings(mode, input, player);
+        if (mode == SettingsFrom.MEMORY_CARD) {
+            patterns.importSettings(input, player);
+        }
     }
 
     @Override
@@ -213,8 +249,9 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     /**
-     * CPU settlement: only when autoExport is ON do products enter returnInv
-     * (AE2 protocol). When OFF they land in OUTPUT and stay — never auto-return.
+     * CPU settlement: returnInv first (AE2 protocol), remainder provider / OUTPUT.
+     * autoExport OFF: do not enter returnInv / provider returnInv (those inject
+     * to the network) — products stay in OUTPUT.
      */
     @Override
     protected boolean canSettleResult(ItemStack result) {
@@ -231,12 +268,11 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     @Override
     protected void settleResult(ItemStack result) {
         if (!inputFromCpuOrder || !autoExportEnabled()) {
-            // OFF: never touch returnInv / provider returnInv (those auto-inject).
             inputFromCpuOrder = false;
             providerReturnSide = null;
             if (!tryPlaceResult(result)) {
                 AppliedPowah.LOG.error(
-                        "ME orb settle lost product {} x{} at {} (autoExport off, OUTPUT full)",
+                        "ME orb settle lost product {} x{} at {} (OUTPUT full)",
                         result.getItem(), result.getCount(), worldPosition);
                 net.minecraft.world.Containers.dropItemStack(
                         level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), result);
@@ -304,7 +340,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
 
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
-        // canBeAlerted=true so returnInv / inventory changes can wake us.
+        // canBeAlerted=true: auto-export / returnInv / cache fill must wake us
+        // (false made ME auto-export appear dead when idle).
         return new TickingRequest(1, 20, false, true);
     }
 
@@ -319,9 +356,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     /**
-     * returnInv → network (AE2 PatternProvider returnInv.injectIntoNetwork).
-     * Gated by autoExport: OFF means nothing leaves for the network (CPU order
-     * hangs by design; flipping the switch back on resumes).
+     * returnInv → network. AE2 doWork path (injectIntoNetwork).
+     * autoExport OFF: do not inject (CPU hangs by design). ON: normal AE2 settle.
      */
     private void drainReturn(IGridNode node) {
         if (!autoExportEnabled()) {
@@ -336,6 +372,7 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
             if (storage == null) {
                 return;
             }
+            // Empty callback matches normal settle; CPU link sees items via storage insert.
             ret.injectIntoNetwork(storage.getInventory(), actionSource, s -> {
             });
         } catch (Exception e) {

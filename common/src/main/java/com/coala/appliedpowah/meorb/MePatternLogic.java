@@ -7,7 +7,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
-import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import com.coala.appliedpowah.orb.EnergizingOrbLogic;
 import com.coala.appliedpowah.orb.OrbCraftGate;
 import net.minecraft.world.item.ItemStack;
@@ -17,17 +16,14 @@ import net.minecraft.world.item.ItemStack;
  *
  * 阻挡模式对齐 AE2 {@code PatternProviderLogic.pushPattern}：
  * isBlocking 且目标（此处 = 台输入槽 1..6）里已出现任一样板原料 key → 拒绝再投。
- *
- * <p>{@code host} is {@link MeOrbPatternHost}, not the BE — see that class.</p>
  */
 public class MePatternLogic extends PatternProviderLogic {
 
     private final MeEnergizingOrbBlockEntity meOrb;
 
-    public MePatternLogic(IManagedGridNode mainNode, PatternProviderLogicHost host,
-            MeEnergizingOrbBlockEntity meOrb, int patternSlots) {
+    public MePatternLogic(IManagedGridNode mainNode, MeEnergizingOrbBlockEntity host, int patternSlots) {
         super(mainNode, host, patternSlots);
-        this.meOrb = meOrb;
+        this.meOrb = host;
     }
 
     @Override
@@ -55,6 +51,7 @@ public class MePatternLogic extends PatternProviderLogic {
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
+        // AE2 blocking: target already holds a pattern input → refuse (do not mix sets).
         if (OrbCraftGate.blocksPush(isBlocking(), craftSlotsContainPatternInput())) {
             return false;
         }
@@ -64,6 +61,11 @@ public class MePatternLogic extends PatternProviderLogic {
         return meOrb.acceptCpuPatternInputs(inputHolder);
     }
 
+    /**
+     * Target inventory for blocking = orb craft slots 1..6.
+     * Match AE2 {@code containsPatternInput}: any available pattern's input key
+     * (secondary dropped) present in the target.
+     */
     private boolean craftSlotsContainPatternInput() {
         var inv = meOrb.getInv();
         int slots = Math.min(EnergizingOrbLogic.SLOTS, inv.getSlots());
