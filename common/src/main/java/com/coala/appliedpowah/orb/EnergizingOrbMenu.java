@@ -67,6 +67,18 @@ public class EnergizingOrbMenu extends AbstractContainerMenu {
                 });
             }
             count += AdvancedEnergizingOrbBlockEntity.ROD_SLOTS;
+            // Universal upgrade cards — outside main GUI (right of 176), 6 vertical slots
+            ItemStackHandler ups = aorb.getUpgradeInv();
+            for (int i = 0; i < UpgradeCardInv.SLOTS; i++) {
+                final int uidx = i;
+                this.addSlot(new SlotItemHandler(ups, i, 180, 22 + i * 18) {
+                    @Override
+                    public boolean mayPlace(ItemStack stack) {
+                        return ups.isItemValid(uidx, stack);
+                    }
+                });
+            }
+            count += UpgradeCardInv.SLOTS;
         }
         this.orbSlots = count;
         // Player inventory 鈥?shifted +1,+1 from YAML spec

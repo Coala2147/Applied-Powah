@@ -35,6 +35,32 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     public static final long BASE_CACHE_FE =
             (long) com.coala.appliedpowah.energycell.ExtremeDenseEnergyCellBlock.MAX_POWER * 2L;
 
+    /** 6-slot universal upgrade cards (thread / parallel / energy). */
+    protected final UpgradeCardInv upgradeInv = new UpgradeCardInv() {
+        @Override
+        protected void onContentsChanged(int slot) {
+            setChanged();
+            checkRecipe();
+            getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
+        }
+    };
+
+    public UpgradeCardInv getUpgradeInv() {
+        return upgradeInv;
+    }
+
+    public int energyCardCount() {
+        return upgradeInv.countEnergy();
+    }
+
+    public int parallelMultiplier() {
+        return OrbTuning.parallelOf(upgradeInv.parallelValue());
+    }
+
+    public int threadCap() {
+        return OrbTuning.threadCap(upgradeInv.threadBonus());
+    }
+
     private final ItemStackHandler rodInv = new ItemStackHandler(ROD_SLOTS) {
         @Override
         protected void onContentsChanged(int slot) {
@@ -132,8 +158,14 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
 
     @Override
     public long getDisplayCapacity() {
-        long totalFe = BASE_CACHE_FE + rodCapacitySum();
+        long totalFe = cacheMaxFe();
         return isAeDisplay() ? totalFe / 2 : totalFe;
+    }
+
+    @Override
+    protected long eNeedFor(owmii.powah.block.energizing.EnergizingRecipe found) {
+        // P from parallel card × available sets; t_act = 1 until multi-lane lands
+        return OrbTuning.eNeed(found.getEnergy(), effectiveParallel(), 1);
     }
 
     @Override
@@ -143,7 +175,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
 
     @Override
     public double getAEMaxPower() {
-        return (BASE_CACHE_FE + rodCapacitySum()) / 2.0;
+        return cacheMaxFe() / 2.0;
     }
 
     @Override
@@ -152,7 +184,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     }
 
     private long cacheMaxFe() {
-        return BASE_CACHE_FE + rodCapacitySum();
+        return OrbTuning.cacheMax(BASE_CACHE_FE + rodCapacitySum(), energyCardCount());
     }
 
     /** Overflow drain bookkeeping (rod pull-out leaves FE above cache cap). */
@@ -264,6 +296,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
             return;
         }
         long room = cacheRoom + recipeNeed; // may pull past cache cap when a recipe needs it
+        long rateCap = OrbTuning.rateLimit(cacheMaxFe(), OrbTuning.rIn(energyCardCount()));
         if (rodsAreAe()) {
             IEnergyService energy = node.getGrid().getEnergyService();
             double max = Math.max(1.0, energy.getMaxStoredPower());
@@ -271,8 +304,9 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
             double available = Math.max(0.0, energy.getStoredPower() - reserve);
             double wantAe = Math.min((double) APConfig.COMMON.aeBurstAe.get(), available);
             double wantFe = wantAe * 2.0;
-            if (wantFe > room) {
-                wantFe = room;
+            long capFe = Math.min(room, rateCap > 0 ? rateCap : room);
+            if (wantFe > capFe) {
+                wantFe = capFe;
                 wantAe = wantFe / 2.0;
             }
             if (wantAe <= 0) {
@@ -288,7 +322,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
             if (storage == null) {
                 return;
             }
-            long want = Math.min(APConfig.COMMON.meBurstFe.get(), room);
+            long want = Math.min(APConfig.COMMON.meBurstFe.get(), Math.min(room, rateCap > 0 ? rateCap : room));
             if (want <= 0) {
                 feedProgressFromBuffer();
                 return;
@@ -307,8 +341,9 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
             double available = Math.max(0.0, energy.getStoredPower() - reserve);
             double wantAe = Math.min((double) APConfig.COMMON.aeBurstAe.get(), available);
             double wantFe = wantAe * 2.0;
-            if (wantFe > room) {
-                wantFe = room;
+            long capFe = Math.min(room, rateCap > 0 ? rateCap : room);
+            if (wantFe > capFe) {
+                wantFe = capFe;
                 wantAe = wantFe / 2.0;
             }
             if (wantAe <= 0) {
@@ -339,6 +374,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put("rodInv", rodInv.serializeNBT());
+        tag.put("upgradeInv", upgradeInv.serializeNBT());
     }
 
     @Override
@@ -347,13 +383,16 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         if (tag.contains("rodInv")) {
             rodInv.deserializeNBT(tag.getCompound("rodInv"));
         }
+        if (tag.contains("upgradeInv")) {
+            upgradeInv.deserializeNBT(tag.getCompound("upgradeInv"));
+        }
     }
 
     // ---- FE output like an energy cell: at most 1% of cache cap per tick ----
 
-    /** Max FE this orb may push/extract per tick = 1% of current cache cap. */
+    /** Max FE this orb may push/extract per tick = r_out × cache (1%→10% with energy cards). */
     public long maxOutputPerTick() {
-        return Math.max(1L, cacheMaxFe() / 100);
+        return OrbTuning.rateLimit(cacheMaxFe(), OrbTuning.rOut(energyCardCount()));
     }
 
     private long extractedThisTick;

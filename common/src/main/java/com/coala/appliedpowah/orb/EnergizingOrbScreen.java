@@ -136,6 +136,11 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     @Override
     protected void renderBg(GuiGraphics g, float partial, int mouseX, int mouseY) {
         int x = leftPos;
+        // Upgrade-card panel outside main GUI (right:-2 style) on Advanced/ME
+        if (menu.isAdvanced()) {
+            g.fill(x + 174, topPos + 18, x + 200, topPos + 18 + 6 * 18 + 4, 0xC0101010);
+            g.fill(x + 174, topPos + 18, x + 200, topPos + 19, 0xFF303030);
+        }
         int y = topPos;
         boolean adv = menu.isAdvanced();
         ResourceLocation tex = menu.isAuto() ? TEX_AUTO : (adv ? TEX_ADV : TEX_ME);

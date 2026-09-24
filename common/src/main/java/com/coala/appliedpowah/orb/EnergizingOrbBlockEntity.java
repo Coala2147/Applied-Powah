@@ -150,6 +150,12 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
      */
     @Nullable
     protected Direction providerReturnSide;
+    /**
+     * Extra input sets for a parallel batch (P−1 sets), flattened. Each set is
+     * the same length as the physical input slots 1..6 that are filled. Not NBT —
+     * rebuilt only from an in-flight pushPattern.
+     */
+    protected final List<ItemStack> pendingExtraSets = new ArrayList<>();
     @Nullable
     protected EnergizingRecipe recipe;
     private LazyOptional<IItemHandler> itemCap = LazyOptional.empty();
@@ -287,12 +293,14 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                 || !OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
             return;
         }
-        ItemStack result = EnergizingOrbLogic.resultOf(level, recipe);
-        if (result.isEmpty()) {
+        ItemStack one = EnergizingOrbLogic.resultOf(level, recipe);
+        if (one.isEmpty()) {
             return;
         }
-        int resultCount = result.getCount();
-        if (resultCount <= 0 || resultCount > OrbResultRules.MAX_SLOT) {
+        int batch = effectiveParallel();
+        ItemStack result = one.copy();
+        result.setCount(Math.min(OrbResultRules.MAX_SLOT, one.getCount() * batch));
+        if (result.getCount() <= 0) {
             return;
         }
         if (!canSettleResult(result)) {
@@ -307,6 +315,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                     inv.extractItem(i, 1, false);
                 }
             }
+            consumePendingExtraSets();
             settleResult(result);
             // Progress is spent on the recipe; cache (bufferFe) is untouched.
             recipeProgress = 0;
@@ -318,6 +327,10 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         }
         setChanged();
         markForUpdate();
+    }
+
+    private void consumePendingExtraSets() {
+        pendingExtraSets.clear();
     }
 
     /**
@@ -480,14 +493,25 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                 empty++;
             }
         }
-        if (!OrbCraftGate.canAcceptFullSet(empty, singles.size())) {
+        // One set = one non-empty input line in this push (not the empty-slot count).
+        int setSize = 0;
+        for (KeyCounter counter : inputs) {
+            if (counter != null && !counter.isEmpty()) {
+                setSize++;
+            }
+        }
+        if (setSize <= 0 || singles.size() % setSize != 0) {
+            return false;
+        }
+        int sets = singles.size() / setSize;
+        if (setSize > empty || !OrbCraftGate.canAcceptFullSet(empty, setSize)) {
             return false;
         }
         int idx = 0;
         boolean saved = completing;
         completing = true;
         try {
-            for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots() && idx < singles.size(); i++) {
+            for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots() && idx < setSize; i++) {
                 if (!inv.getStackInSlot(i).isEmpty()) {
                     continue;
                 }
@@ -501,8 +525,14 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         } finally {
             completing = saved;
         }
-        if (idx != singles.size()) {
+        if (idx != setSize) {
             return false;
+        }
+        pendingExtraSets.clear();
+        for (int s = 1; s < sets; s++) {
+            for (int k = 0; k < setSize; k++) {
+                pendingExtraSets.add(singles.get(s * setSize + k).toStack(1));
+            }
         }
         providerReturnSide = ejectionDirection;
         inputFromCpuOrder = false;
@@ -531,6 +561,33 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         return singles;
     }
 
+    /** E_need = E0 × P × (1 + waste(t_act)). Base: P=1, t_act=1. Advanced/ME use cards. */
+    protected long eNeedFor(EnergizingRecipe found) {
+        return OrbTuning.eNeed(found.getEnergy(), effectiveParallel(), 1);
+    }
+
+    /** Batch size this completion can actually pay for (1 if no extra sets). */
+    protected int effectiveParallel() {
+        int want = 1;
+        if (this instanceof AdvancedEnergizingOrbBlockEntity adv) {
+            want = adv.parallelMultiplier();
+        }
+        if (want <= 1) {
+            return 1;
+        }
+        int filledInputs = 0;
+        for (int i = 1; i < EnergizingOrbLogic.SLOTS && i < inv.getSlots(); i++) {
+            if (!inv.getStackInSlot(i).isEmpty()) {
+                filledInputs++;
+            }
+        }
+        if (filledInputs <= 0) {
+            return 1;
+        }
+        int sets = 1 + pendingExtraSets.size() / filledInputs;
+        return Math.max(1, Math.min(want, sets));
+    }
+
     protected void checkRecipe() {
         if (level == null || level.isClientSide || completing) {
             return;
@@ -542,7 +599,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
                 recipeProgress = 0;
             }
             recipe = found;
-            recipeEnergy = found.getEnergy();
+            recipeEnergy = eNeedFor(found);
             containRecipe = true;
             feedProgressFromBuffer();
             if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
@@ -552,6 +609,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
             recipe = null;
             recipeEnergy = 0;
             recipeProgress = 0;
+            pendingExtraSets.clear();
             containRecipe = false;
         }
         updateWarning();

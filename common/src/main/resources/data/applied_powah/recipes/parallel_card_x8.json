@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "dbd",
+    "ici",
+    "did"
+  ],
+  "key": {
+    "d": { "item": "ae2:matter_ball" },
+    "b": { "item": "ae2:calculation_processor" },
+    "c": { "item": "ae2:quartz_vibrant_glass" },
+    "i": { "item": "applied_powah:parallel_card_x6" }
+  },
+  "result": { "item": "applied_powah:parallel_card_x8" }
+}

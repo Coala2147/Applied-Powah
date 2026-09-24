@@ -74,7 +74,19 @@ public final class AppliedPowah {
                                 output.accept(com.coala.appliedpowah.orb.APOrbs.ME_ORB_ITEM.get());
                             }
                         } catch (Throwable t) {
-                            // powah missing 鈥?orbs unregistered
+                            // powah missing — orbs unregistered
+                        }
+                        try {
+                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P1.get());
+                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P2.get());
+                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P4.get());
+                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P8.get());
+                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X2.get());
+                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X4.get());
+                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X6.get());
+                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X8.get());
+                        } catch (Throwable t) {
+                            LOG.warn("Creative tab cards: {}", t.toString());
                         }
                     })
                     .build());
@@ -92,8 +104,9 @@ public final class AppliedPowah {
 
         if (ae2) {
             Ae2Bridge.init(bus, powah, appflux);
+            com.coala.appliedpowah.orb.APCards.register(bus);
         } else {
-            LOG.error("AE2 not present 鈥?nothing will register.");
+            LOG.error("AE2 not present — nothing will register.");
         }
         com.coala.appliedpowah.network.APNetwork.register();
     }
