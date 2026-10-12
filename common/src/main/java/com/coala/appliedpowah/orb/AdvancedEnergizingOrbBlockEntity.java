@@ -49,6 +49,12 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         return upgradeInv;
     }
 
+    /** Rods must not beam into this tier (rod slots + network pull instead). */
+    @Override
+    public boolean rodFeedable() {
+        return false;
+    }
+
     public int energyCardCount() {
         return upgradeInv.countEnergy();
     }

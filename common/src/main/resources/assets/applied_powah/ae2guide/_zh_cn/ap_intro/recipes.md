@@ -28,11 +28,11 @@ categories:
 - **升级：** 与基础棒同形，中间放上一档 AP 棒。
 - **AE ↔ ME：** 同档无序转换。
 
-<RecipeFor id="applied_powah:ae_rod_starter" fallbackText="4× 能源元件摆十字 + Powah 初级棒（中间）。" />
+<RecipeFor id="applied_powah:ae_energizing_rod_starter" fallbackText="4× 能源元件摆十字 + Powah 初级棒（中间）。" />
 
-<RecipeFor id="applied_powah:me_rod_starter" fallbackText="4× 能源元件摆四角 + Powah 初级棒（中间）。" />
+<RecipeFor id="applied_powah:me_energizing_rod_starter" fallbackText="4× 能源元件摆四角 + Powah 初级棒（中间）。" />
 
-<RecipeFor id="applied_powah:ae_rod_basic" fallbackText="4× 能源元件摆十字 + AP 初级棒（中间）。" />
+<RecipeFor id="applied_powah:ae_energizing_rod_basic" fallbackText="4× 能源元件摆十字 + AP 初级棒（中间）。" />
 
 ## 充能台
 

@@ -22,7 +22,11 @@ public final class PowahBridge {
     }
 
     private static boolean isFeedable(BlockEntity be) {
-        return be instanceof EnergizingOrbTile || be instanceof EnergyAcceptingOrb;
+        if (be instanceof EnergizingOrbTile) {
+            return true;
+        }
+        // AP orbs: only rod-feedable tiers (Fluix); Advanced/ME excluded (issues.md 0.6.0-2).
+        return be instanceof EnergyAcceptingOrb ap && ap.rodFeedable();
     }
 
     private static boolean hasRecipe(BlockEntity be) {

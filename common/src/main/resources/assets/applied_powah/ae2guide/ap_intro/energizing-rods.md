@@ -78,6 +78,6 @@ AE rods use a **cross** of energy cells; ME rods use the **corners**. Both take
 the same-tier Powah rod in the center. Upgrades follow Powah's pattern
 (previous rod in the middle), and AE ↔ ME is a shapeless swap.
 
-<RecipeFor id="applied_powah:ae_rod_starter" fallbackText="4× AE2 energy cell in a cross + Powah starter rod (center)." />
+<RecipeFor id="applied_powah:ae_energizing_rod_starter" fallbackText="4× AE2 energy cell in a cross + Powah starter rod (center)." />
 
-<RecipeFor id="applied_powah:me_rod_starter" fallbackText="4× AE2 energy cell in the corners + Powah starter rod (center). Needs Applied Flux." />
+<RecipeFor id="applied_powah:me_energizing_rod_starter" fallbackText="4× AE2 energy cell in the corners + Powah starter rod (center). Needs Applied Flux." />

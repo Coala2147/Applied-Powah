@@ -29,11 +29,11 @@ below describes them in that case.
 - **Upgrade:** same shape as the base rod, previous AP rod in the middle.
 - **AE ↔ ME:** shapeless swap of the same tier.
 
-<RecipeFor id="applied_powah:ae_rod_starter" fallbackText="4× energy cell in a cross + Powah starter rod (center)." />
+<RecipeFor id="applied_powah:ae_energizing_rod_starter" fallbackText="4× energy cell in a cross + Powah starter rod (center)." />
 
-<RecipeFor id="applied_powah:me_rod_starter" fallbackText="4× energy cell in the corners + Powah starter rod (center)." />
+<RecipeFor id="applied_powah:me_energizing_rod_starter" fallbackText="4× energy cell in the corners + Powah starter rod (center)." />
 
-<RecipeFor id="applied_powah:ae_rod_basic" fallbackText="4× energy cell in a cross + AP starter rod (center)." />
+<RecipeFor id="applied_powah:ae_energizing_rod_basic" fallbackText="4× energy cell in a cross + AP starter rod (center)." />
 
 ## Energizing orbs
 

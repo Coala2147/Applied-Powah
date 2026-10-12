@@ -27,7 +27,8 @@ public final class ApOrbFeed {
         for (BlockPos pos : BlockPos.betweenClosed(
                 from.offset(-range, -range, -range),
                 from.offset(range, range, range))) {
-            if (!(level.getBlockEntity(pos) instanceof EnergyAcceptingOrb)) {
+            // Only rod-feedable tiers (Fluix); Advanced/ME excluded (issues.md 0.6.0-2).
+            if (!(level.getBlockEntity(pos) instanceof EnergyAcceptingOrb ap) || !ap.rodFeedable()) {
                 continue;
             }
             BlockPos imm = pos.immutable();

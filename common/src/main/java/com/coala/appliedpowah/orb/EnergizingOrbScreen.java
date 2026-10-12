@@ -203,18 +203,6 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         super.renderTooltip(g, mx, my);
     }
 
-    /** Lane / T / P status line (GTO-style summary). */
-    private void renderLaneStatus(GuiGraphics g) {
-        if (!(menu.getOrb() instanceof AdvancedEnergizingOrbBlockEntity adv)) {
-            return;
-        }
-        var status = adv.laneStatusSummary();
-        if (status.isEmpty()) {
-            return;
-        }
-        g.drawString(font, status, 8, topPos + 90, 0xFF808080, false);
-    }
-
     private int guideY() {
         return topPos + GUIDE_BTN_Y;
     }
@@ -360,7 +348,6 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         renderBackground(g);
         super.render(g, mouseX, mouseY, partial);
-        renderLaneStatus(g);
 
         long prog = menu.getGuiProgress();
         long max = menu.getGuiRecipeEnergy();

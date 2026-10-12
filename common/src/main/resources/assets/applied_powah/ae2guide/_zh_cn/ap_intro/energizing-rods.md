@@ -75,6 +75,6 @@ item_ids:
 AE 棒用能量元件摆**十字**；ME 棒摆**四角**；中间放同档 Powah 棒。升级沿用
 Powah 图案（中间放上一档 AP 棒），AE ↔ ME 为无序转换。
 
-<RecipeFor id="applied_powah:ae_rod_starter" fallbackText="4× AE2 能源元件摆十字 + Powah 初级棒（中间）。" />
+<RecipeFor id="applied_powah:ae_energizing_rod_starter" fallbackText="4× AE2 能源元件摆十字 + Powah 初级棒（中间）。" />
 
-<RecipeFor id="applied_powah:me_rod_starter" fallbackText="4× AE2 能源元件摆四角 + Powah 初级棒（中间）。需要 Applied Flux。" />
+<RecipeFor id="applied_powah:me_energizing_rod_starter" fallbackText="4× AE2 能源元件摆四角 + Powah 初级棒（中间）。需要 Applied Flux。" />
