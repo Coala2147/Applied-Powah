@@ -2,8 +2,6 @@
 navigation:
   title: Add-on: Applied Powah
   position: 80
-item_ids:
-  - applied_powah:guide_book
 categories:
 - applied powah
 ---

@@ -2,7 +2,7 @@
   "$schema": "schema.json",
   "includes": ["common/common.json", "common/player_inventory.json"],
   "background": {
-    "texture": "guis/auto_orb_patterns.png",
+    "texture": "applied_powah:textures/gui/me_energizing_orb_patterns.png",
     "srcRect": [0, 0, 176, 245]
   },
   "slots": {

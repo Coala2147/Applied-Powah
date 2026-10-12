@@ -3,8 +3,6 @@ navigation:
   title: 附加模组：Applied Powah
   position: 80
   icon: applied_powah:super_dense_energy_cell
-item_ids:
-  - applied_powah:guide_book
 categories:
   - Applied Powah
 ---

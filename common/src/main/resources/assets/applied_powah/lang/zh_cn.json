@@ -1,6 +1,5 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
-  "item.applied_powah.guide_book": "Applied Powah 指南",
   "applied_powah.tooltip.stored_energy": "已存储能源: %s/%s AE (%s)",
   "applied_powah.tooltip.rod.buffer": "最大缓存: %s %s",
   "applied_powah.tooltip.rod.transfer": "最大输出: %s %s/t",

@@ -1,6 +1,5 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
-  "item.applied_powah.guide_book": "Applied Powah Guide",
   "applied_powah.tooltip.stored_energy": "Stored Energy: %s/%s AE (%s)",
   "applied_powah.tooltip.rod.buffer": "Max Buffer: %s %s",
   "applied_powah.tooltip.rod.transfer": "Max Transfer: %s %s/t",
