@@ -48,3 +48,5 @@ libs/
 # ===== Local build products (fixed output path; do not upload) =====
 /releases/
 /releases/**
+test.md
+prompt_timeline.md
