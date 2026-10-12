@@ -372,7 +372,8 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         }
         if (menu.isAdvanced() && menu.getGuiCapacity() > 0) {
             g.drawString(font,
-                    "缓存 " + fmt(menu.getGuiEnergy()) + "/" + fmt(menu.getGuiCapacity())
+                    Component.translatable("applied_powah.gui.energy_cache").getString() + " "
+                            + fmt(menu.getGuiEnergy()) + "/" + fmt(menu.getGuiCapacity())
                             + " " + menu.getGuiEnergyUnit(),
                     leftPos + 8, topPos + 87, 0xFF404040, false);
         }

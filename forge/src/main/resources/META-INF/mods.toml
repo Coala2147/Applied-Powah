@@ -35,6 +35,19 @@ ordering="AFTER"
 side="BOTH"
 
 # ======================== OPTIONAL ========================
+# GuideME: AE2 15+ hard-depends guideme, and AE2 is our own hard prerequisite,
+# so GuideME is transitively guaranteed present whenever this mod loads.
+# Declared optional (not mandatory) because we never call GuideME directly —
+# our guide pages are plain resources read through AE2's guidebook system
+# (AppEng.openGuideAtAnchor / InitScreens). If GuideME were ever dropped from
+# AE2, only the in-game ? button degrades (guide_missing message); no crash.
+[[dependencies.applied_powah]]
+modId="guideme"
+mandatory=false
+versionRange="[15.0.0,)"
+ordering="AFTER"
+side="CLIENT"
+
 [[dependencies.applied_powah]]
 modId="powah"
 mandatory=false

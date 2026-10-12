@@ -336,15 +336,19 @@ public class EnergizingRodBlockEntity extends AENetworkBlockEntity implements IG
     }
 
     // ---- AE2 IAEPowerStorage (Jade/WTHIT via AE2 PowerStorageDataProvider) ----
+    // Always report the AE equivalent (bufferFe/2, 2 FE = 1 AE): AE2's provider
+    // labels these values "AE", so returning the raw FE count for ME rods would
+    // show the right number under the wrong unit. The FE-native view lives in
+    // the GUI / item tooltip via getDisplayEnergy().
 
     @Override
     public double getAECurrentPower() {
-        return getDisplayEnergy();
+        return bufferFe / 2.0;
     }
 
     @Override
     public double getAEMaxPower() {
-        return getDisplayCapacity();
+        return tier().capacityFe / 2.0;
     }
 
     @Override

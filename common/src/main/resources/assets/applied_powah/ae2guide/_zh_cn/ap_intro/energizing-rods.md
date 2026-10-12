@@ -3,7 +3,7 @@ navigation:
   parent: ap_intro/ap_intro-index.md
   title: 充能棒
   position: 20
-  icon: powah:energizing_rod_starter
+  icon: applied_powah:ae_energizing_rod_starter
 categories:
   - Applied Powah
 item_ids:
@@ -25,23 +25,56 @@ item_ids:
 
 # 充能棒
 
-用 **ME 网络**里的能量，自动供给附近的 **Powah 充能台**。
+全方块充能棒：从 **ME 网络**取能，供给附近的 **Powah 充能台**（或本模组的
+[充能台](energizing-orbs.md)）。共七档，与 Powah 对齐：初级 → 基础 → 硬化 → 烈焰 →
+钻石 → 富生 → 下界。
 
-七档与 Powah 对齐：初级 → 基础 → 硬化 → 烈焰 → 钻石 → 富生 → 下界。
+<Row>
+  <BlockImage id="applied_powah:ae_energizing_rod_starter" scale="4" />
+  <BlockImage id="applied_powah:me_energizing_rod_starter" scale="4" />
+</Row>
 
-| 棒 | 使用的能量 |
-|----|------------|
-| **AE** 充能棒 | ME 网格中的 AE |
-| **ME** 充能棒 | ME 网络中的 FE（需要 Applied Flux） |
+| 系列 | 能量来源 | 备注 |
+|--------|---------------|-------|
+| <ItemLink id="applied_powah:ae_energizing_rod_starter" /> … 下界 | ME 电网的 **AE** | 无需额外模组 |
+| <ItemLink id="applied_powah:me_energizing_rod_starter" /> … 下界 | ME 网络的 **FE** | 需要 **Applied Flux**；未安装时配方禁用 |
 
-## 怎么用
+## 各档数值
 
-1. 把棒放在 **AE2 线缆**旁边——它会朝向那根线缆。
-2. 在附近放一台 **Powah 充能台**，台内放入可充能的配方材料。
-3. 网络有电（且有频道）时，棒会取能并推进充能台；有光柱表示正在工作。
+与 Powah 档位一致。物品提示栏显示同样数值；挖下棒时缓存会保留在物品上（可配置）。
 
-物品 tooltip 会显示该档的**最大缓存**和**最大输出**（与 Powah 棒同类信息）。
+| 档位 | 缓存（AE 棒） | 输出（AE 棒） | 缓存（ME 棒） | 输出（ME 棒） |
+|------|-----------------|-------------------|-----------------|-------------------|
+| 初级 | 5k | 50/t | 10k | 100/t |
+| 基础 | 20k | 200/t | 40k | 400/t |
+| 硬化 | 50k | 500/t | 100k | 1k/t |
+| 烈焰 | 200k | 2k/t | 400k | 4k/t |
+| 钻石 | 500k | 5k/t | 1M | 10k/t |
+| 富生 | 2M | 20k/t | 4M | 40k/t |
+| 下界 | 10M | 100k/t | 20M | 200k/t |
 
-挖下的棒不保留内部能量。
+## 使用方法
 
-未安装 **Applied Flux** 时，ME 棒无法抽取 FE（其配方也会关闭）。
+1. 紧贴 **AE2 线缆**放置并朝向它——详见[放置](placement.md)。
+2. 在附近放一个 **Powah 充能台**（或本模组充能台）并载入有效配方。
+3. 棒从网络抽能入缓存，再推入充能台；供能时有光束显示。
+
+### 扳手链接（Powah 扳手）
+
+把棒绑定到指定充能台（Powah 同款流程）：
+
+1. 扳手切到 **Link** 模式（空中 shift+右键）。
+2. 右键**棒**——聊天栏提示"开始链接"。
+3. 右键**充能台**——聊天栏提示"链接完成"。
+
+之后即使附近有其它充能台，该棒也只供能这台。对已链接扳手右键 AP 充能台
+完成的是链接，不会打开 GUI。
+
+## 配方
+
+AE 棒用能量元件摆**十字**；ME 棒摆**四角**；中间放同档 Powah 棒。升级沿用
+Powah 图案（中间放上一档 AP 棒），AE ↔ ME 为无序转换。
+
+<RecipeFor id="applied_powah:ae_rod_starter" fallbackText="4× AE2 能源元件摆十字 + Powah 初级棒（中间）。" />
+
+<RecipeFor id="applied_powah:me_rod_starter" fallbackText="4× AE2 能源元件摆四角 + Powah 初级棒（中间）。需要 Applied Flux。" />

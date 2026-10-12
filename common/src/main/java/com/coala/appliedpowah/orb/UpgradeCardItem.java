@@ -40,6 +40,12 @@ public class UpgradeCardItem extends Item {
     public void appendHoverText(ItemStack stack, @org.jetbrains.annotations.Nullable net.minecraft.world.level.Level level,
             java.util.List<net.minecraft.network.chat.Component> tooltip, net.minecraft.world.item.TooltipFlag flag) {
         super.appendHoverText(stack, level, tooltip, flag);
+        // Effect line first (AE2 upgrade-card style: state what the card does)
+        String effectKey = kind == Kind.THREAD
+                ? "applied_powah.tooltip.card.thread"
+                : "applied_powah.tooltip.card.parallel";
+        tooltip.add(net.minecraft.network.chat.Component.translatable(effectKey, value)
+                .withStyle(net.minecraft.ChatFormatting.GRAY));
         // AE2 UpgradeCardItem: "Supported by:" then machine names (Tooltips.NORMAL_TOOLTIP_TEXT)
         tooltip.add(net.minecraft.network.chat.Component.translatable("gui.tooltips.ae2.SupportedBy")
                 .withStyle(net.minecraft.ChatFormatting.GRAY));

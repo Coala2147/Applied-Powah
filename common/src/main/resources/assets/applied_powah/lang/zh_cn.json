@@ -1,6 +1,5 @@
 {
   "itemGroup.applied_powah": "Applied Powah",
-  "applied_powah.tooltip.stored_energy": "已存储能源: %s/%s AE (%s)",
   "applied_powah.tooltip.rod.buffer": "最大缓存: %s %s",
   "applied_powah.tooltip.rod.transfer": "最大输出: %s %s/t",
   "block.applied_powah.super_dense_energy_cell": "超密能源元件",
@@ -55,11 +54,13 @@
   "applied_powah.gui.auto_export.on": "自动输出: 开",
   "applied_powah.gui.auto_export.off": "自动输出: 关",
   "applied_powah.gui.patterns": "样板",
+  "applied_powah.gui.energy_cache": "缓存:",
   "applied_powah.gui.back_to_orb": "返回充能台",
-  "applied_powah.gui.compatible_upgrades": "可用升级：",
+  "chat.powah.wrench.link.start": "开始链接：请右键目标充能台",
+  "chat.powah.wrench.link.done": "链接完成",
+  "chat.powah.wrench.link.fail": "链接失败：目标无效或过远",
   "applied_powah.upgrade.family.thread": "线程卡",
   "applied_powah.upgrade.family.parallel": "并行卡",
   "applied_powah.tooltip.card.thread": "线程 +%s",
-  "applied_powah.tooltip.card.parallel": "并行 ×%s",
-  "applied_powah.tooltip.card.slot": "放入充能台升级槽"
+  "applied_powah.tooltip.card.parallel": "并行 ×%s"
 }
