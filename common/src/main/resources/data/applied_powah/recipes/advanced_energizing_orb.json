@@ -1,19 +1,19 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "bbb",
-    "bab",
-    "bcb"
+    "aba",
+    "bcb",
+    "aba"
   ],
   "key": {
     "a": {
-      "item": "applied_powah:fluix_energizing_orb"
-    },
-    "b": {
       "tag": "forge:nitro_rods"
     },
+    "b": {
+      "item": "applied_powah:fluix_energizing_orb"
+    },
     "c": {
-      "item": "applied_powah:extreme_dense_energy_cell"
+      "item": "appliedenergistics2:engineering_processor"
     }
   },
   "result": {

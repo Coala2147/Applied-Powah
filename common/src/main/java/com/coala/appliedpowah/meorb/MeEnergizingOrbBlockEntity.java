@@ -449,7 +449,13 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         appeng.menu.MenuOpener.open(MePatternMenu.TYPE, player, locator);
     }
 
-    /** 从样板页返回 ME 台 GUI（与右键台打开同一菜单）。 */
+    /** Icon shown in the ME terminal for this pattern provider. */
+    @Override
+    public AEItemKey getTerminalIcon() {
+        return AEItemKey.of(APOrbs.ME_ORB_ITEM.get());
+    }
+
+    /** Reopen the ME orb GUI (from the pattern page back button). */
     public void openOrbMenu(net.minecraft.server.level.ServerPlayer player) {
         net.minecraftforge.network.NetworkHooks.openScreen(player, new net.minecraft.world.MenuProvider() {
             @Override
@@ -461,7 +467,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
             public net.minecraft.world.inventory.AbstractContainerMenu createMenu(
                     int id, net.minecraft.world.entity.player.Inventory inv,
                     net.minecraft.world.entity.player.Player p) {
-                return new com.coala.appliedpowah.orb.EnergizingOrbMenu(id, inv, MeEnergizingOrbBlockEntity.this);
+                return new com.coala.appliedpowah.orb.EnergizingOrbMenu(
+                        APOrbs.ME_ORB_MENU.get(), id, inv, MeEnergizingOrbBlockEntity.this);
             }
         }, buf -> buf.writeBlockPos(worldPosition));
     }

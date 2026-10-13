@@ -34,30 +34,35 @@ The simple one: a Powah Energizing Orb that lives in your ME network.
 
 | Property | Behavior |
 |----------|----------|
-| Recipes | Same as Powah Energizing Orb (6 inputs + 1 output) |
+| Recipe pages | **1** (6 inputs + 1 output) |
 | Energy cache | **None** — does not store network power |
 | Network pull | **Never** pulls AE/FE from ME |
 | Rod feed | **Yes** — Powah rods and AP AE/ME rods fill the current recipe |
-| Auto-export | Optional toggle: push output into ME storage / adjacent inventories |
+| Output | Ejection tri-state (see below) |
 | Rod slots | No |
 
 It must be charged by rods (or any Powah-compatible energy source) while a
 recipe is loaded. Without a recipe it accepts no energy.
 
-### Auto-export
+### Ejection
 
-Toolbar button on the left of the GUI (AE2 auto-export icon):
+Toolbar button on the left of the GUI, cycling three states:
 
-- **Off** — products stay in the output slot
-- **On** — products are inserted into the ME network and/or adjacent
-  inventories, rate-limited per tick
+- **Off** — products stay in the page output slot (a ME crafting CPU order
+  waits by design and resumes when you switch back)
+- **Configured sides** — products are pushed into the selected block faces only;
+  a second button opens the face configuration
+- **ME network** — products are inserted into the ME network (and CPU leftovers
+  return through it)
 
 ## Advanced Energizing Orb
 
-A Fluix orb with rod slots and a real energy cache.
+A Fluix orb with rod slots, a real energy cache and **4 independent recipe
+pages**.
 
 | Property | Behavior |
 |----------|----------|
+| Recipe pages | **4**, each with its own inputs, output and progress |
 | Rod slots | 4 slots × up to **16** AP rods each |
 | Rod family | All rods must be **AE** or all **ME** (mixing is blocked) |
 | Rod tiers | Mixed tiers allowed |
@@ -82,6 +87,7 @@ from the ME network.
 
 | Property | Behavior |
 |----------|----------|
+| Recipe pages | **4**, cross-page feeding from ME orders |
 | Pattern slots | **36** encoded processing patterns (4×9) |
 | Network jobs | Accepts `pushPattern` orders from a crafting CPU (Induction Card style bursts) |
 | Rod feed | Same as Advanced (rod slots + cache) |
@@ -98,13 +104,17 @@ The orb GUI is **176×199** and contains:
 - **6 input slots** (2×3 grid) on the left
 - **1 output slot** on the right (read-only)
 - **Vertical progress bar** next to the output slot (hover for numbers)
-- **Warning icon** on the output slot when energy is insufficient
+- **Warning icon** above the progress area when energy is insufficient
 - **Left toolbar** (outside the main panel):
   1. **?** — open this GuideME page
-  2. **Auto-export** — toggle product push to ME
-  3. **Patterns** (ME orb only) — open the pattern page
+  2. **<** / **>** — switch recipe pages (Advanced / ME only)
+  3. **Output** — cycle the ejection tri-state; in *configured sides* mode a
+     second button opens the face configuration
+  4. **Patterns** (ME orb only) — open the pattern page
+- **Right panel** — 5 AE2 upgrade slots (speed cards on every tier, energy cards
+  on Advanced / ME)
 
-The Advanced orb also shows its rod cache and has **4 rod slots** on the right.
+The page label sits under the GUI title; Advanced orbs also show their rod cache.
 
 ### Wrench interaction
 
@@ -115,6 +125,6 @@ open the GUI; it completes a rod→orb link (see [Energizing rods](energizing-ro
 
 <RecipeFor id="applied_powah:fluix_energizing_orb" fallbackText="Powah energizing orb + AE2 import bus + AE2 interface. Needs Powah." />
 
-<RecipeFor id="applied_powah:advanced_energizing_orb" fallbackText="Fluix orb + 7× nitro rods + extreme dense energy cell. Needs Powah." />
+<RecipeFor id="applied_powah:advanced_energizing_orb" fallbackText="4× fluix orb on the edge midpoints + 4× nitro rod in the corners + engineering processor in the center. Needs Powah." />
 
 <RecipeFor id="applied_powah:me_energizing_orb" fallbackText="Advanced orb + AE2 pattern provider + 2× capacity card + engineering processor. Needs Powah." />

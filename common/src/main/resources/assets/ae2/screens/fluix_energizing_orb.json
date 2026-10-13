@@ -1,0 +1,72 @@
+{
+  "$schema": "schema.json",
+  "includes": ["common/common.json", "common/player_inventory.json"],
+  "background": {
+    "texture": "applied_powah:textures/gui/fluix_energizing_orb.png",
+    "srcRect": [0, 0, 176, 199]
+  },
+  "slots": {
+    "ap_orb_page_1": {
+      "left": 25,
+      "top": 30,
+      "grid": "BREAK_AFTER_2COLS"
+    },
+    "MACHINE_OUTPUT": {
+      "left": 120,
+      "top": 44
+    },
+    "PLAYER_INVENTORY": {
+      "left": 8,
+      "top": 115,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PLAYER_HOTBAR": {
+      "left": 8,
+      "top": 173,
+      "grid": "HORIZONTAL"
+    }
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "block.applied_powah.fluix_energizing_orb"
+      },
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    },
+    "player_inventory_title": {
+      "text": {
+        "translate": "container.inventory"
+      },
+      "position": {
+        "left": 8,
+        "top": 104
+      }
+    }
+  },
+  "images": {
+    "progressBar": {
+      "texture": "applied_powah:textures/gui/fluix_energizing_orb.png",
+      "srcRect": [176, 0, 6, 18]
+    },
+    "powerAlert": {
+      "texture": "applied_powah:textures/gui/power_alert.png"
+    }
+  },
+  "widgets": {
+    "progressBar": {
+      "left": 146,
+      "top": 47
+    },
+    "powerAlert": {
+      "left": 152,
+      "top": 24
+    },
+    "patternPage": {
+      "left": 153,
+      "top": 4
+    }
+  }
+}

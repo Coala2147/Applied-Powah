@@ -41,19 +41,11 @@ All three need **Powah** installed.
 
 <RecipeFor id="applied_powah:fluix_energizing_orb" fallbackText="Powah energizing orb + AE2 import bus + AE2 interface." />
 
-<RecipeFor id="applied_powah:advanced_energizing_orb" fallbackText="Fluix orb + 7× nitro rods + extreme dense energy cell." />
+<RecipeFor id="applied_powah:advanced_energizing_orb" fallbackText="4× fluix orb on the edge midpoints + 4× nitro rod in the corners + engineering processor in the center." />
 
 <RecipeFor id="applied_powah:me_energizing_orb" fallbackText="Advanced orb + AE2 pattern provider + 2× capacity card + engineering processor." />
 
 ## Upgrade cards
 
-Thread and parallel cards stack to 1 and install one at a time per family.
-Top tiers use a **singularity**; the previous tier sits in the middle.
-
-<RecipeFor id="applied_powah:thread_card_p1" fallbackText="Nether star + advanced card + vibrant quartz glass + spatial cell component 2." />
-
-<RecipeFor id="applied_powah:thread_card_p8" fallbackText="Thread card +4 + calculation processor + spatial components + singularity." />
-
-<RecipeFor id="applied_powah:parallel_card_x2" fallbackText="Advanced card + nether star + crafting accelerator + vibrant quartz glass." />
-
-<RecipeFor id="applied_powah:parallel_card_x8" fallbackText="Parallel card ×6 + calculation processor + vibrant quartz glass + singularity." />
+Upgrade slots take AE2's own cards — the addon ships no custom cards. See the
+[Upgrade cards](upgrade-cards.md) page.

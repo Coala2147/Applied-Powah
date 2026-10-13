@@ -76,18 +76,6 @@ public final class AppliedPowah {
                         } catch (Throwable t) {
                             // powah missing — orbs unregistered
                         }
-                        try {
-                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P1.get());
-                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P2.get());
-                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P4.get());
-                            output.accept(com.coala.appliedpowah.orb.APCards.THREAD_P8.get());
-                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X2.get());
-                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X4.get());
-                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X6.get());
-                            output.accept(com.coala.appliedpowah.orb.APCards.PARALLEL_X8.get());
-                        } catch (Throwable t) {
-                            LOG.warn("Creative tab cards: {}", t.toString());
-                        }
                     })
                     .build());
 
@@ -104,11 +92,30 @@ public final class AppliedPowah {
 
         if (ae2) {
             Ae2Bridge.init(bus, powah, appflux);
-            com.coala.appliedpowah.orb.APCards.register(bus);
         } else {
             LOG.error("AE2 not present — nothing will register.");
         }
         com.coala.appliedpowah.network.APNetwork.register();
+        // Switchable built-in 1.21.1 texture pack (see APBuiltinPacks).
+        bus.addListener(AppliedPowah::onAddPackFinders);
+    }
+
+    /** Registers the classpath built-in resource pack under {@code builtin_pack_1211/}. */
+    private static void onAddPackFinders(net.minecraftforge.event.AddPackFindersEvent event) {
+        if (event.getPackType() != net.minecraft.server.packs.PackType.CLIENT_RESOURCES) {
+            return;
+        }
+        try {
+            event.addRepositorySource(packConsumer -> {
+                var pack = com.coala.appliedpowah.integration.APBuiltinPacks.create1211();
+                if (pack != null) {
+                    packConsumer.accept(pack);
+                }
+            });
+            LOG.info("Registered built-in 1.21.1 texture pack finder");
+        } catch (Throwable t) {
+            LOG.warn("Built-in pack finder not registered: {}", t.toString());
+        }
     }
 
     private static void onClientSetup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
@@ -122,15 +129,23 @@ public final class AppliedPowah {
                 LOG.warn("Rod renderer not registered: {}", t.toString());
             }
             try {
-                if (net.minecraftforge.fml.ModList.get().isLoaded("powah")
-                        && com.coala.appliedpowah.orb.APOrbs.ORB_MENU != null) {
-                    net.minecraft.client.gui.screens.MenuScreens.register(
-                            com.coala.appliedpowah.orb.APOrbs.ORB_MENU.get(),
-                            com.coala.appliedpowah.orb.EnergizingOrbScreen::new);
-                    LOG.info("Registered energizing orb screen");
-                }
+                // Mirrors ExtendedAE: InitScreens ties MenuType to a ScreenStyle JSON.
+                // One style per tier (fluix / advanced / me) — multi-page layout.
+                appeng.init.client.InitScreens.register(
+                        com.coala.appliedpowah.orb.APOrbs.FLUIX_ORB_MENU.get(),
+                        com.coala.appliedpowah.orb.EnergizingOrbScreen::new,
+                        "/screens/fluix_energizing_orb.json");
+                appeng.init.client.InitScreens.register(
+                        com.coala.appliedpowah.orb.APOrbs.ADV_ORB_MENU.get(),
+                        com.coala.appliedpowah.orb.EnergizingOrbScreen::new,
+                        "/screens/advanced_energizing_orb.json");
+                appeng.init.client.InitScreens.register(
+                        com.coala.appliedpowah.orb.APOrbs.ME_ORB_MENU.get(),
+                        com.coala.appliedpowah.orb.EnergizingOrbScreen::new,
+                        "/screens/me_energizing_orb.json");
+                LOG.info("Registered energizing orb screens (fluix / advanced / me)");
             } catch (Throwable t) {
-                LOG.warn("Orb screen not registered: {}", t.toString());
+                LOG.warn("Orb screens not registered: {}", t.toString());
             }
             try {
                 // Mirrors ExtendedAE: InitScreens ties MenuType to a ScreenStyle JSON.

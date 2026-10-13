@@ -98,9 +98,29 @@ public final class APOrbs {
         return (BlockEntityType<com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity>) (BlockEntityType<?>) ME_TYPE_REF.get();
     }
 
-    public static final RegistryObject<net.minecraft.world.inventory.MenuType<EnergizingOrbMenu>> ORB_MENU =
-            MENUS.register("energizing_orb", () ->
-                    net.minecraftforge.common.extensions.IForgeMenuType.create(EnergizingOrbMenu::clientFactory));
+    /**
+     * One MenuType per tier — the tier decides the ScreenStyle JSON (page count,
+     * rod slots, pattern button), and the client factory dispatches on the BE type.
+     */
+    public static final RegistryObject<net.minecraft.world.inventory.MenuType<EnergizingOrbMenu>> FLUIX_ORB_MENU =
+            MENUS.register("fluix_energizing_orb", () ->
+                    net.minecraftforge.common.extensions.IForgeMenuType.create(
+                            (id, inv, buf) -> EnergizingOrbMenu.clientFactory(
+                                    EnergizingOrbMenu.Tier.FLUIX, id, inv, buf)));
+    public static final RegistryObject<net.minecraft.world.inventory.MenuType<EnergizingOrbMenu>> ADV_ORB_MENU =
+            MENUS.register("advanced_energizing_orb", () ->
+                    net.minecraftforge.common.extensions.IForgeMenuType.create(
+                            (id, inv, buf) -> EnergizingOrbMenu.clientFactory(
+                                    EnergizingOrbMenu.Tier.ADVANCED, id, inv, buf)));
+    public static final RegistryObject<net.minecraft.world.inventory.MenuType<EnergizingOrbMenu>> ME_ORB_MENU =
+            MENUS.register("me_energizing_orb", () ->
+                    net.minecraftforge.common.extensions.IForgeMenuType.create(
+                            (id, inv, buf) -> EnergizingOrbMenu.clientFactory(
+                                    EnergizingOrbMenu.Tier.ME, id, inv, buf)));
+
+    private static final java.util.Set<String> REMOVED_CARD_ITEMS = java.util.Set.of(
+            "thread_card_p1", "thread_card_p2", "thread_card_p4", "thread_card_p8",
+            "parallel_card_x2", "parallel_card_x4", "parallel_card_x6", "parallel_card_x8");
 
     private APOrbs() {
     }
@@ -154,9 +174,14 @@ public final class APOrbs {
             }
             for (var m : event.<Item>getMappings(
                     net.minecraft.core.registries.Registries.ITEM, AppliedPowah.MOD_ID)) {
-                if ("auto_energizing_orb".equals(m.getKey().getPath()) && ME_ORB_ITEM.isPresent()) {
+                String path = m.getKey().getPath();
+                if ("auto_energizing_orb".equals(path) && ME_ORB_ITEM.isPresent()) {
                     m.remap(ME_ORB_ITEM.get());
                     AppliedPowah.LOG.info("Remapped item auto_energizing_orb -> me_energizing_orb");
+                } else if (REMOVED_CARD_ITEMS.contains(path)) {
+                    // 0.6.2: thread/parallel cards replaced by AE2 speed/energy cards
+                    m.ignore();
+                    AppliedPowah.LOG.info("Dropped removed upgrade card item {}", path);
                 }
             }
             for (var m : event.<BlockEntityType<?>>getMappings(

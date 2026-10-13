@@ -1,83 +1,180 @@
 package com.coala.appliedpowah.orb;
 
 import appeng.client.gui.Icon;
-import appeng.core.AppEng;
 import appeng.client.guidebook.PageAnchor;
+import appeng.client.gui.implementations.UpgradeableScreen;
+import appeng.client.gui.style.Blitter;
+import appeng.client.gui.style.PaletteColor;
+import appeng.client.gui.style.ScreenStyle;
+import appeng.client.gui.widgets.IconButton;
+import appeng.client.gui.widgets.ProgressBar;
+import com.coala.appliedpowah.meorb.OrbDirectionsScreen;
 import com.coala.appliedpowah.network.APNetwork;
 import com.coala.appliedpowah.network.C2SOpenPatternMenu;
-import com.coala.appliedpowah.network.C2SToggleAutoExport;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 /**
- * Energizing orb GUI.
- * Progress / auto-export read from menu DataSlots (server→client every tick)
- * so the progress bar actually animates.
- *
- * Layering:
- * bg shell → progress sprite fill → AE2 toolbar icons.
+ * Energizing orb GUI — AE2 style screen with:
+ * <ul>
+ *   <li>per-tier ScreenStyle JSON (background, slot positions, progress bar);</li>
+ *   <li>left toolbar: page arrows, eject tri-state button, output-face config
+ *       (SIDES mode only), ME pattern page;</li>
+ *   <li>page label, reaction energy, cache line and power alert in the foreground.</li>
+ * </ul>
  */
-public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMenu> {
+public class EnergizingOrbScreen extends UpgradeableScreen<EnergizingOrbMenu> {
 
-    private static final ResourceLocation TEX_ME =
-            new ResourceLocation("applied_powah", "textures/gui/fluix_energizing_orb.png");
-    private static final ResourceLocation TEX_ADV =
-            new ResourceLocation("applied_powah", "textures/gui/advanced_energizing_orb.png");
-    private static final ResourceLocation TEX_AUTO =
-            new ResourceLocation("applied_powah", "textures/gui/me_energizing_orb.png");
-    /** Own icon atlas (asset/orb/results/states.png). */
     private static final ResourceLocation TEX_STATES =
             new ResourceLocation("applied_powah", "textures/gui/states.png");
-    // UV in TEX_STATES (256×256)
-    private static final int ICON_CANCEL_X = 0;
-    private static final int ICON_EXPORT_ON_X = 16;
+    /** states.png sprite of the pattern-page button. */
     private static final int ICON_PATTERN_X = 32;
-    private static final int ICON_Y = 0;
-
-    private static final int GUI_W = 176;
-    private static final int GUI_H = 199;
-    private static final int TEX_SIZE = 256;
-
-    // Texture atlas offsets within the 256×256 sheet
-    private static final int TEX_PROG_X = 176;
-
-    /** Vertical progress beside output (6×18). */
-    private static final int PROG_W = 6;
-    private static final int PROG_H = 18;
+    private static final int ICON_PATTERN_Y = 0;
 
     private static final ResourceLocation GUIDE_PAGE =
             new ResourceLocation("applied_powah", "ap_intro/energizing-orbs.md");
 
-    /** AE2 upgrade panel chrome (UpgradesPanel). */
-    private static final ResourceLocation TEX_EXTRA_PANELS =
-            new ResourceLocation("ae2", "textures/guis/extra_panels.png");
-    /** AE2 empty-slot icon BACKGROUND_UPGRADE (Icon 240,208). */
-    private static final ResourceLocation TEX_STATES_AE2 =
-            new ResourceLocation("ae2", "textures/guis/states.png");
+    /** Text positions inside the 176×199 GUI (free panel areas of the art set). */
+    private static final int PAGE_LABEL_X = 8;
+    private static final int PAGE_LABEL_Y = 18;
+    private static final int ENERGY_X_ADV = 57;
+    private static final int ENERGY_X_FLUIX = 68;
+    private static final int ENERGY_Y = 45;
+    private static final int CACHE_X = 8;
+    private static final int CACHE_Y = 87;
 
-    private static final int BTN = 16;
-    private static final int TOOLBAR_X = -20;
-    private static final int GUIDE_BTN_Y = 8;
-    private static final int EXPORT_BTN_Y = 28;
-    private static final int PATTERN_BTN_Y = 48;
+    private final ProgressBar progressBar;
+    private final IconButton prevPage;
+    private final IconButton nextPage;
+    private final IconButton ejectButton;
+    private final IconButton directionsButton;
+    private final PatternPageButton patternButton;
+    private final AlertWidget powerAlert;
 
-    /** Upgrade panel layout (mirrors AE2 UpgradesPanel: pad 7, slot 18). */
-    private static final int UP_PAD = 7;
-    private static final int UP_SLOT = 18;
-    private static final int UP_X = 174; // right:-2 of 176-wide GUI
-    private static final int UP_Y = 18;
-    private boolean hoverUpgradePanel;
-    private int hoverUpgradeSlot = -1;
+    public EnergizingOrbScreen(EnergizingOrbMenu menu, Inventory playerInventory, Component title,
+            ScreenStyle style) {
+        super(menu, playerInventory, title, style);
 
-    public EnergizingOrbScreen(EnergizingOrbMenu menu, Inventory inv, Component title) {
-        super(menu, inv, title);
-        this.imageWidth = GUI_W;
-        this.imageHeight = GUI_H;
-        // Slot row 0 begins at y=114; keep 12 px gap like vanilla 166-height screens
-        this.inventoryLabelY = this.imageHeight - 97;
+        this.progressBar = new ProgressBar(menu, style.getImage("progressBar"),
+                ProgressBar.Direction.VERTICAL);
+        widgets.add("progressBar", this.progressBar);
+
+        this.prevPage = new IconButton(btn -> menu.requestPage(menu.getPage() - 1)) {
+            @Override
+            protected Icon getIcon() {
+                return Icon.ARROW_LEFT;
+            }
+        };
+        this.prevPage.setMessage(Component.translatable("applied_powah.gui.page.prev"));
+        addToLeftToolbar(this.prevPage);
+
+        this.nextPage = new IconButton(btn -> menu.requestPage(menu.getPage() + 1)) {
+            @Override
+            protected Icon getIcon() {
+                return Icon.ARROW_RIGHT;
+            }
+        };
+        this.nextPage.setMessage(Component.translatable("applied_powah.gui.page.next"));
+        addToLeftToolbar(this.nextPage);
+
+        this.ejectButton = new IconButton(btn -> menu.cycleEject()) {
+            @Override
+            protected Icon getIcon() {
+                return switch (menu.getEjectMode()) {
+                    case OFF -> Icon.AUTO_EXPORT_OFF;
+                    case SIDES -> Icon.INSCRIBER_SEPARATE_SIDES;
+                    case NETWORK -> Icon.AUTO_EXPORT_ON;
+                };
+            }
+        };
+        this.ejectButton.setMessage(ejectTooltip());
+        addToLeftToolbar(this.ejectButton);
+
+        this.directionsButton = new IconButton(
+                btn -> switchToScreen(new OrbDirectionsScreen(this))) {
+            @Override
+            protected Icon getIcon() {
+                return Icon.WRENCH;
+            }
+        };
+        this.directionsButton.setMessage(Component.translatable("applied_powah.gui.eject.sides_config"));
+        addToLeftToolbar(this.directionsButton);
+
+        this.patternButton = new PatternPageButton(btn -> {
+            var orb = menu.getOrb();
+            if (orb != null) {
+                APNetwork.sendToServer(new C2SOpenPatternMenu(orb.getBlockPos()));
+            }
+        });
+        widgets.add("patternPage", this.patternButton);
+
+        this.powerAlert = new AlertWidget(style.getImage("powerAlert"));
+        widgets.add("powerAlert", this.powerAlert);
+    }
+
+    private Component ejectTooltip() {
+        return Component.translatable(menu.getEjectMode().langKey());
+    }
+
+    @Override
+    protected void updateBeforeRender() {
+        super.updateBeforeRender();
+        this.menu.showPage();
+
+        boolean multi = this.menu.pageCount() > 1;
+        this.prevPage.setVisibility(multi && this.menu.getPage() > 0);
+        this.nextPage.setVisibility(multi && this.menu.getPage() < this.menu.pageCount() - 1);
+        this.ejectButton.setMessage(ejectTooltip());
+        this.directionsButton.setVisibility(this.menu.showsDirectionsButton());
+        this.patternButton.visible = this.menu.isAuto();
+        this.powerAlert.visible = this.menu.isShowWarning();
+
+        long prog = this.menu.getGuiProgress();
+        long max = this.menu.getGuiRecipeEnergy();
+        if (max > 0) {
+            int pct = (int) Math.min(100, prog * 100 / max);
+            this.progressBar.setFullMsg(Component.translatable("applied_powah.tooltip.progress",
+                    String.valueOf(prog), String.valueOf(max), String.valueOf(pct)));
+        } else {
+            this.progressBar.setFullMsg(Component.empty());
+        }
+    }
+
+    @Override
+    public void drawFG(GuiGraphics guiGraphics, int offsetX, int offsetY, int mouseX, int mouseY) {
+        int textColor = style.getColor(PaletteColor.DEFAULT_TEXT_COLOR).toARGB();
+        if (this.menu.pageCount() > 1) {
+            guiGraphics.drawString(font,
+                    Component.translatable("applied_powah.gui.page.label",
+                            this.menu.getPage() + 1, this.menu.pageCount()),
+                    PAGE_LABEL_X, PAGE_LABEL_Y, textColor, false);
+        }
+
+        long prog = this.menu.getGuiProgress();
+        long max = this.menu.getGuiRecipeEnergy();
+        if (max > 0) {
+            int x = this.menu.isAdvanced() ? ENERGY_X_ADV : ENERGY_X_FLUIX;
+            guiGraphics.drawString(font, fmt(prog) + "/" + fmt(max), x, ENERGY_Y, textColor, false);
+        }
+
+        if (this.menu.isAdvanced() && this.menu.getGuiCapacity() > 0) {
+            guiGraphics.drawString(font,
+                    Component.translatable("applied_powah.gui.energy_cache").getString() + " "
+                            + fmt(this.menu.getGuiEnergy()) + "/" + fmt(this.menu.getGuiCapacity())
+                            + " " + this.menu.getGuiEnergyUnit(),
+                    CACHE_X, CACHE_Y, textColor, false);
+        }
+    }
+
+    @Override
+    protected appeng.client.guidebook.PageAnchor getHelpTopic() {
+        return PageAnchor.page(GUIDE_PAGE);
     }
 
     private static String fmt(long v) {
@@ -90,297 +187,49 @@ public class EnergizingOrbScreen extends AbstractContainerScreen<EnergizingOrbMe
         return String.valueOf(v);
     }
 
-    private int guideX() {
-        return leftPos + TOOLBAR_X;
-    }
+    /** Reaction-chamber style power alert (18×18 sprite from the ScreenStyle). */
+    private static final class AlertWidget extends AbstractWidget {
 
-    /**
-     * AE2 UpgradesPanel.drawSlot UV model (extra_panels.png 128×128):
-     * interior src(7,7,18,18); borders grow the blit by PADDING=7.
-     * 1×6 column: L+R on every row; T on first; B on last.
-     */
-    private void drawUpgradePanel(GuiGraphics g, int x, int y, int mouseX, int mouseY) {
-        final int pad = UP_PAD;
-        final int slot = UP_SLOT;
-        final int slots = UpgradeCardInv.SLOTS;
-        final int slotOriginX = x + UP_X + pad + 1;
-        final int slotOriginY = y + UP_Y + pad + 1;
-        int panelW = pad * 2 + slot;
-        int panelH = pad * 2 + slots * slot;
+        private final Blitter icon;
 
-        for (int i = 0; i < slots; i++) {
-            int row = i % 8;
-            int col = i / 8;
-            int sx = slotOriginX + col * slot;
-            int sy = slotOriginY + row * slot;
-            boolean borderLeft = col == 0;
-            boolean borderTop = row == 0;
-            boolean lastSlot = i + 1 >= slots;
-            boolean lastRow = row + 1 >= 8;
-            boolean borderBottom = lastRow || lastSlot;
-            boolean borderRight = i >= slots - 8; // single column → always
-            drawUpgradeSlotCell(g, sx, sy, borderLeft, borderTop, borderRight, borderBottom);
+        AlertWidget(Blitter icon) {
+            super(0, 0, 18, 18, Component.empty());
+            this.icon = icon;
+            this.visible = false;
+        }
 
-            var menuSlot = menu.getUpgradeSlot(i);
-            if (menuSlot != null && !menuSlot.hasItem()) {
-                // Icon.BACKGROUND_UPGRADE (240,208) 16×16 from ae2 states.png
-                g.blit(TEX_STATES_AE2, sx + 1, sy + 1, 240, 208, 16, 16, 256, 256);
+        @Override
+        protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partial) {
+            if (icon != null && this.visible) {
+                icon.dest(getX(), getY()).blit(guiGraphics);
             }
         }
 
-        hoverUpgradePanel = false;
-        hoverUpgradeSlot = -1;
-        int mx = mouseX - x;
-        int my = mouseY - y;
-        if (mx >= UP_X && mx < UP_X + panelW && my >= UP_Y && my < UP_Y + panelH) {
-            hoverUpgradePanel = true;
-            int row = (my - UP_Y - pad) / slot;
-            if (row >= 0 && row < slots) {
-                hoverUpgradeSlot = row;
-            }
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput narration) {
         }
     }
 
-    /** Copy of AE2 UpgradesPanel.drawSlot (exact UV grow). */
-    private void drawUpgradeSlotCell(GuiGraphics g, int x, int y,
-            boolean borderLeft, boolean borderTop, boolean borderRight, boolean borderBottom) {
-        final int pad = UP_PAD;
-        final int size = UP_SLOT;
-        int srcX = pad;
-        int srcY = pad;
-        int srcW = size;
-        int srcH = size;
-        int destX = x;
-        int destY = y;
-        if (borderLeft) {
-            destX -= pad;
-            srcX = 0;
-            srcW += pad;
+    /** Pattern-page button (ME tier only): sprite from the mod's own icon atlas. */
+    private static final class PatternPageButton extends Button {
+
+        PatternPageButton(OnPress onPress) {
+            super(0, 0, 16, 16, Component.translatable("applied_powah.gui.patterns"), onPress,
+                    DEFAULT_NARRATION);
+            this.visible = false;
         }
-        if (borderRight) {
-            srcW += pad;
-        }
-        if (borderTop) {
-            destY -= pad;
-            srcY = 0;
-            srcH += pad;
-        }
-        if (borderBottom) {
-            srcH += pad;
-        }
-        g.blit(TEX_EXTRA_PANELS, destX, destY, srcX, srcY, srcW, srcH, 128, 128);
-    }
 
-    @Override
-    protected void renderTooltip(GuiGraphics g, int mx, int my) {
-        if (menu.isAdvanced() && hoverUpgradePanel) {
-            // AE2: header WHITE, entries "%s (%s)" = family name + max count (not tier)
-            var lines = new java.util.ArrayList<net.minecraft.network.chat.Component>();
-            lines.add(net.minecraft.network.chat.Component.translatable("gui.ae2.CompatibleUpgrades")
-                    .withStyle(net.minecraft.ChatFormatting.WHITE));
-            lines.add(net.minecraft.network.chat.Component.translatable(
-                    "gui.ae2.CompatibleUpgrade",
-                    net.minecraft.network.chat.Component.translatable("applied_powah.upgrade.family.thread"),
-                    1).withStyle(net.minecraft.ChatFormatting.GRAY));
-            lines.add(net.minecraft.network.chat.Component.translatable(
-                    "gui.ae2.CompatibleUpgrade",
-                    net.minecraft.network.chat.Component.translatable("applied_powah.upgrade.family.parallel"),
-                    1).withStyle(net.minecraft.ChatFormatting.GRAY));
-            lines.add(net.minecraft.network.chat.Component.translatable(
-                    "gui.ae2.CompatibleUpgrade",
-                    net.minecraft.network.chat.Component.translatable("item.ae2.energy_card"),
-                    UpgradeCardInv.ENERGY_MAX).withStyle(net.minecraft.ChatFormatting.GRAY));
-            if (hoverUpgradeSlot >= 0) {
-                var slot = menu.getUpgradeSlot(hoverUpgradeSlot);
-                if (slot != null && slot.hasItem()) {
-                    g.renderTooltip(font, slot.getItem(), mx, my);
-                    return;
-                }
-            }
-            g.renderComponentTooltip(font, lines, mx, my);
-            return;
-        }
-        super.renderTooltip(g, mx, my);
-    }
-
-    private int guideY() {
-        return topPos + GUIDE_BTN_Y;
-    }
-
-    private int exportX() {
-        return leftPos + TOOLBAR_X;
-    }
-
-    private int exportY() {
-        return topPos + EXPORT_BTN_Y;
-    }
-
-    private int patternX() {
-        return leftPos + TOOLBAR_X;
-    }
-
-    private int patternY() {
-        return topPos + PATTERN_BTN_Y;
-    }
-
-    private boolean inBtn(int mx, int my, int x, int y) {
-        return mx >= x && mx < x + BTN && my >= y && my < y + BTN;
-    }
-
-    // Layout helpers — with-4-block (Advanced/ME) vs without-4-block (Fluix)
-    // Exact coords from 最新with-4-block.json / 最新without-4-block.json「进度条（GUI内）」
-    private int progX() {
-        return menu.isAdvanced() ? 135 : 146;
-    }
-
-    private int progY() {
-        return 47;
-    }
-
-    private boolean hoverProgress(int mx, int my) {
-        return mx >= leftPos + progX() - 2 && mx < leftPos + progX() + PROG_W + 2
-                && my >= topPos + progY() && my < topPos + progY() + PROG_H;
-    }
-
-    private void openGuide() {
-        try {
-            AppEng.instance().openGuideAtAnchor(new PageAnchor(GUIDE_PAGE, null));
-        } catch (Throwable t) {
-            try {
-                AppEng.instance().openGuideAtPreviousPage(GUIDE_PAGE);
-            } catch (Throwable ignored) {
-                if (minecraft != null && minecraft.player != null) {
-                    minecraft.player.displayClientMessage(
-                            Component.translatable("applied_powah.gui.guide_missing"), true);
-                }
-            }
-        }
-    }
-
-    @Override
-    protected void renderBg(GuiGraphics g, float partial, int mouseX, int mouseY) {
-        int x = leftPos;
-        // Upgrade-card panel outside main GUI (AE2 extra_panels.png chrome)
-        if (menu.isAdvanced()) {
-            drawUpgradePanel(g, x, topPos, mouseX, mouseY);
-        }
-        int y = topPos;
-        boolean adv = menu.isAdvanced();
-        ResourceLocation tex = menu.isAuto() ? TEX_AUTO : (adv ? TEX_ADV : TEX_ME);
-        int px = progX();
-        int py = progY();
-
-        // 1) empty-shell background (176×199 from the 256×256 sheet)
-        g.blit(tex, x, y, 0, 0, GUI_W, GUI_H, TEX_SIZE, TEX_SIZE);
-
-        // 2) progress fill from DataSlot values — bar moves as energy fills
-        long prog = menu.getGuiProgress();
-        long max = menu.getGuiRecipeEnergy();
-        if (max > 0) {
-            int fillH = (int) ((prog * (long) PROG_H) / max);
-            if (fillH > PROG_H) {
-                fillH = PROG_H;
-            }
-            if (fillH > 0) {
-                // fill from bottom (VERTICAL): bottom-up bar
-                int top = y + py + (PROG_H - fillH);
-                int srcY = PROG_H - fillH;
-                try {
-                    g.blit(tex, x + px, top, TEX_PROG_X, srcY, PROG_W, fillH, TEX_SIZE, TEX_SIZE);
-                } catch (Throwable t) {
-                    g.fill(x + px, top, x + px + PROG_W, y + py + PROG_H, 0xFF00C853);
-                }
+        @Override
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partial) {
+            if (this.visible) {
+                guiGraphics.blit(TEX_STATES, getX(), getY(), ICON_PATTERN_X, ICON_PATTERN_Y,
+                        16, 16, 256, 256);
             }
         }
 
-        // 3) left toolbar — AE2 states.png
-        renderToolbarButtons(g);
-    }
-
-    private void renderToolbarButtons(GuiGraphics g) {
-        g.fill(guideX() - 1, guideY() - 1, guideX() + BTN + 1, guideY() + BTN + 1, 0xFF373737);
-        g.fill(guideX(), guideY(), guideX() + BTN, guideY() + BTN, 0xFF8B8B8B);
-        g.fill(exportX() - 1, exportY() - 1, exportX() + BTN + 1, exportY() + BTN + 1, 0xFF373737);
-        g.fill(exportX(), exportY(), exportX() + BTN, exportY() + BTN, 0xFF8B8B8B);
-        try {
-            Icon.HELP.getBlitter().dest(guideX(), guideY()).blit(g);
-        } catch (Throwable t) {
-            g.drawString(font, "?", guideX() + 5, guideY() + 4, 0xFFFFFFFF, false);
-        }
-        boolean on = menu.getGuiAutoExport();
-        int exportU = on ? ICON_EXPORT_ON_X : ICON_CANCEL_X;
-        g.blit(TEX_STATES, exportX(), exportY(), exportU, ICON_Y, 16, 16, 256, 256);
-        if (menu.isAuto()) {
-            g.fill(patternX() - 1, patternY() - 1, patternX() + BTN + 1, patternY() + BTN + 1, 0xFF373737);
-            g.fill(patternX(), patternY(), patternX() + BTN, patternY() + BTN, 0xFF8B8B8B);
-            g.blit(TEX_STATES, patternX(), patternY(), ICON_PATTERN_X, ICON_Y, 16, 16, 256, 256);
-        }
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            int mx = (int) mouseX;
-            int my = (int) mouseY;
-            if (inBtn(mx, my, guideX(), guideY())) {
-                openGuide();
-                return true;
-            }
-            if (inBtn(mx, my, exportX(), exportY())) {
-                var orb = menu.getOrb();
-                if (orb != null) {
-                    APNetwork.sendToServer(new C2SToggleAutoExport(orb.getBlockPos()));
-                }
-                return true;
-            }
-            if (menu.isAuto() && inBtn(mx, my, patternX(), patternY())) {
-                var orb = menu.getOrb();
-                if (orb != null) {
-                    APNetwork.sendToServer(new C2SOpenPatternMenu(orb.getBlockPos()));
-                }
-                return true;
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        renderBackground(g);
-        super.render(g, mouseX, mouseY, partial);
-
-        long prog = menu.getGuiProgress();
-        long max = menu.getGuiRecipeEnergy();
-        if (max > 0) {
-            // Fixed positions from user YAML (with-4-block:57,45 / without-4-block:68,45)
-            int energyX = menu.isAdvanced() ? leftPos + 57 : leftPos + 68;
-            g.drawString(font, fmt(prog) + "/" + fmt(max),
-                    energyX, topPos + 45, 0xFF404040, false);
-        }
-        if (menu.isAdvanced() && menu.getGuiCapacity() > 0) {
-            g.drawString(font,
-                    Component.translatable("applied_powah.gui.energy_cache").getString() + " "
-                            + fmt(menu.getGuiEnergy()) + "/" + fmt(menu.getGuiCapacity())
-                            + " " + menu.getGuiEnergyUnit(),
-                    leftPos + 8, topPos + 87, 0xFF404040, false);
-        }
-
-        if (inBtn(mouseX, mouseY, guideX(), guideY())) {
-            g.renderTooltip(font, Component.translatable("applied_powah.gui.guide"), mouseX, mouseY);
-        } else if (inBtn(mouseX, mouseY, exportX(), exportY())) {
-            g.renderTooltip(font, Component.translatable(
-                    menu.getGuiAutoExport()
-                            ? "applied_powah.gui.auto_export.on"
-                            : "applied_powah.gui.auto_export.off"),
-                    mouseX, mouseY);
-        } else if (menu.isAuto() && inBtn(mouseX, mouseY, patternX(), patternY())) {
-            g.renderTooltip(font, Component.translatable("applied_powah.gui.patterns"), mouseX, mouseY);
-        } else if (max > 0 && hoverProgress(mouseX, mouseY)) {
-            int pct = max <= 0 ? 0 : (int) Math.round(100.0 * prog / max);
-            g.renderTooltip(font, Component.translatable(
-                    "applied_powah.tooltip.progress", fmt(prog), fmt(max), pct), mouseX, mouseY);
-        } else {
-            renderTooltip(g, mouseX, mouseY);
+        @Override
+        public void updateWidgetNarration(NarrationElementOutput narration) {
+            narration.add(NarratedElementType.TITLE, this.getMessage());
         }
     }
 }

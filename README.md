@@ -78,10 +78,10 @@ Crashing, have a suggestion, found a bug? [Create an issue](https://github.com/C
 | Super / Extreme Dense Energy Cell | 12.8M / 102.4M AE network storage; 8× previous cell + calculation processor; keeps stored AE when mined |
 | AE Energizing Rod ×7 tiers | Full block; extracts **AE** from the ME network; feeds nearby Energizing Orbs; Powah-tier stats |
 | ME Energizing Rod ×7 tiers | Full block; extracts **FE** via Applied Flux; same orb feed |
-| Fluix Energizing Orb | Powah energizing recipes in an ME-connected machine; rod-fed; optional auto-export |
-| Advanced Energizing Orb | 4 rod slots + internal energy cache; pulls from the ME network (AE or FE) |
-| ME Energizing Orb | Pattern-provider style host: accepts ME crafting jobs, 36 encoded-pattern slots, return-inventory |
-| Thread / Parallel cards ×8 | Orb upgrade slots (thread +1/+2/+4/+8, parallel ×2/×4/×6/×8) |
+| Fluix Energizing Orb | Powah energizing recipes in an ME-connected machine; rod-fed; 5 AE2 upgrade slots |
+| Advanced Energizing Orb | 4 independent recipe pages, 4 rod slots + internal energy cache; pulls from the ME network (AE or FE) |
+| ME Energizing Orb | Pattern-provider style host: 4 recipe pages, accepts ME crafting jobs, 36 encoded-pattern slots, return-inventory |
+| Orb upgrade slots | AE2's own cards: speed card ×5 on every tier, energy card ×4 on Advanced / ME |
 | Wrench link | Powah wrench binds rods to specific orbs (Powah workflow) |
 
 In-game documentation is part of the **AE2 GuideME book** — hold **G** on any

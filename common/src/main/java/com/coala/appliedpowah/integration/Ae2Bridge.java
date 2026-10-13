@@ -28,6 +28,7 @@ public final class Ae2Bridge {
 
     private static void onCommonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
+            APUpgrades.register();
             AppliedPowah.LOG.info("--- Applied Powah registered content ---");
             ForgeRegistries.BLOCKS.getEntries().stream()
                     .filter(e -> e.getKey().location().getNamespace().equals(AppliedPowah.MOD_ID))

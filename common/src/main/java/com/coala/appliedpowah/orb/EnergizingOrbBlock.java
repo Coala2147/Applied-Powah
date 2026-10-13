@@ -153,15 +153,25 @@ public abstract class EnergizingOrbBlock<T extends EnergizingOrbBlockEntity> ext
                     return Component.translatable(state.getBlock().getDescriptionId());
                 }
 
-                @Nullable
                 @Override
                 public AbstractContainerMenu createMenu(int id, Inventory inv, Player p) {
-                    return new EnergizingOrbMenu(id, inv, orb);
+                    return new EnergizingOrbMenu(menuTypeFor(orb), id, inv, orb);
                 }
             }, buf -> buf.writeBlockPos(pos));
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
+    }
+
+    /** MenuType of the tier that opened the screen (decides the ScreenStyle JSON). */
+    protected static net.minecraft.world.inventory.MenuType<EnergizingOrbMenu> menuTypeFor(
+            EnergizingOrbBlockEntity orb) {
+        if (orb instanceof AdvancedEnergizingOrbBlockEntity) {
+            return orb instanceof com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity
+                    ? APOrbs.ME_ORB_MENU.get()
+                    : APOrbs.ADV_ORB_MENU.get();
+        }
+        return APOrbs.FLUIX_ORB_MENU.get();
     }
 
     private static boolean isPowahWrenchLink(ItemStack stack) {
@@ -188,7 +198,16 @@ public abstract class EnergizingOrbBlock<T extends EnergizingOrbBlockEntity> ext
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (!state.is(newState.getBlock()) && !level.isClientSide
                 && level.getBlockEntity(pos) instanceof EnergizingOrbBlockEntity orb) {
-            dropAll(level, pos, orb.getInv());
+            for (int p = 0; p < orb.pageCount(); p++) {
+                dropAll(level, pos, orb.getThread(p).getInv());
+            }
+            for (int i = 0; i < orb.getUpgrades().size(); i++) {
+                ItemStack stack = orb.getUpgrades().getStackInSlot(i);
+                if (!stack.isEmpty()) {
+                    net.minecraft.world.Containers.dropItemStack(
+                            level, pos.getX(), pos.getY(), pos.getZ(), stack);
+                }
+            }
             if (orb instanceof AdvancedEnergizingOrbBlockEntity adv) {
                 dropAll(level, pos, adv.getRodInv());
             }

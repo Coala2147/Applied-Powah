@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,28 +18,48 @@ class GuiLangCopyTest {
     }
 
     @Test
-    void zhAutoExportOnHasNoParenExplanation() throws Exception {
+    void zhEjectLineHasNoParenExplanation() throws Exception {
         String json = read("zh_cn.json");
-        assertTrue(json.contains("\"applied_powah.gui.auto_export.on\": \"自动输出: 开\""));
-        assertFalse(json.contains("自动输出: 开（"));
+        assertTrue(json.contains("\"applied_powah.gui.eject.sides\": \"产物输出: 指定面\""));
+        assertFalse(json.contains("产物输出: 指定面（"));
+        assertFalse(json.contains("产物输出: 指定面("));
     }
 
     @Test
-    void enAutoExportOnHasNoParenExplanation() throws Exception {
+    void enEjectLineHasNoParenExplanation() throws Exception {
         String json = read("en_us.json");
-        assertTrue(json.contains("\"applied_powah.gui.auto_export.on\": \"Auto-export: ON\""));
-        assertFalse(json.contains("Auto-export: ON ("));
+        assertTrue(json.contains("\"applied_powah.gui.eject.sides\": \"Output: configured sides\""));
+        assertFalse(json.contains("Output: configured sides ("));
+        assertFalse(json.contains("Output: configured sides("));
     }
 
     @Test
-    void offLinesUnchanged() throws Exception {
-        assertTrue(read("zh_cn.json").contains("\"applied_powah.gui.auto_export.off\": \"自动输出: 关\""));
-        assertTrue(read("en_us.json").contains("\"applied_powah.gui.auto_export.off\": \"Auto-export: OFF\""));
+    void allThreeEjectStatesExistInBothLanguages() throws Exception {
+        for (String lang : new String[] {"zh_cn.json", "en_us.json"}) {
+            String json = read(lang);
+            for (String key : new String[] {
+                    "applied_powah.gui.eject.off",
+                    "applied_powah.gui.eject.sides",
+                    "applied_powah.gui.eject.network",
+                    "applied_powah.gui.eject.sides_config",
+                    "applied_powah.gui.eject.sides_title",
+                    "applied_powah.gui.page.label",
+                    "applied_powah.gui.page.prev",
+                    "applied_powah.gui.page.next"}) {
+                assertTrue(json.contains("\"" + key + "\":"), lang + " missing " + key);
+            }
+        }
     }
 
     @Test
-    void autoExportOnIsExactShortLabel() throws Exception {
-        // status reports state only — explanation lives in Guide/tooltip
-        assertEquals(true, read("zh_cn.json").lines().anyMatch(l -> l.contains("自动输出: 开\"")));
+    void removedCardKeysAreGone() throws Exception {
+        for (String lang : new String[] {"zh_cn.json", "en_us.json"}) {
+            String json = read(lang);
+            assertFalse(json.contains("thread_card"), lang + " still lists thread cards");
+            assertFalse(json.contains("parallel_card"), lang + " still lists parallel cards");
+            assertFalse(json.contains("upgrade.family"), lang + " still lists card families");
+            assertFalse(json.contains("tooltip.card"), lang + " still lists card tooltips");
+            assertFalse(json.contains("gui.auto_export"), lang + " still lists the old auto-export keys");
+        }
     }
 }

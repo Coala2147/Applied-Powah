@@ -1,0 +1,58 @@
+{
+  "$schema": "schema.json",
+  "includes": ["common/common.json"],
+  "background": {
+    "texture": "applied_powah:textures/gui/fluix_energizing_orb.png",
+    "srcRect": [0, 0, 176, 199]
+  },
+  "text": {
+    "dialog_title": {
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    }
+  },
+  "widgets": {
+    "side_down": {
+      "left": 20,
+      "top": 40,
+      "width": 58,
+      "height": 14
+    },
+    "side_up": {
+      "left": 78,
+      "top": 40,
+      "width": 58,
+      "height": 14
+    },
+    "side_north": {
+      "left": 136,
+      "top": 40,
+      "width": 58,
+      "height": 14
+    },
+    "side_south": {
+      "left": 20,
+      "top": 58,
+      "width": 58,
+      "height": 14
+    },
+    "side_west": {
+      "left": 78,
+      "top": 58,
+      "width": 58,
+      "height": 14
+    },
+    "side_east": {
+      "left": 136,
+      "top": 58,
+      "width": 58,
+      "height": 14
+    },
+    "back": {
+      "left": 154,
+      "top": 0
+    }
+  }
+}

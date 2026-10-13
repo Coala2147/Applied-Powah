@@ -50,3 +50,7 @@ libs/
 /releases/**
 issues.md
 prompt_timeline.md
+worktree_space/
+
+# Texture-pack WIP (assets 工作树：生成管线 + 中间产物，成品已落 mod 资源)
+/texture_pack_work/

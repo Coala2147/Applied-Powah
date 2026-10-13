@@ -45,11 +45,12 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.items.wrapper.CombinedItemHandler;
 import owmii.powah.block.energizing.EnergizingRecipe;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.jetbrains.annotations.NotNull;
+import java.util.ArrayList;import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -104,7 +105,8 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
         int pages = pageCount();
         this.threads = new CraftThread[pages];
         for (int i = 0; i < pages; i++) {
-            this.threads[i] = new CraftThread(slot -> onThreadSlotChanged(i, slot));
+            final int idx = i;
+            this.threads[i] = new CraftThread(slot -> onThreadSlotChanged(idx, slot));
         }
         this.upgrades = UpgradeInventories.forMachine(
                 getBlockState().getBlock(), UPGRADE_SLOTS, this::onUpgradesChanged);
@@ -917,11 +919,12 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     public <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
         if (cap == ForgeCapabilities.ITEM_HANDLER) {
             if (!itemCap.isPresent()) {
-                IItemHandler[] views = new IItemHandler[threads.length];
+                net.minecraftforge.items.IItemHandlerModifiable[] views =
+                        new net.minecraftforge.items.IItemHandlerModifiable[threads.length];
                 for (int i = 0; i < threads.length; i++) {
-                    views[i] = threads[i].externalView();
+                    views[i] = (net.minecraftforge.items.IItemHandlerModifiable) threads[i].externalView();
                 }
-                itemCap = LazyOptional.of(() -> new CombinedItemHandler(views));
+                itemCap = LazyOptional.of(() -> new net.minecraftforge.items.wrapper.CombinedInvWrapper(views));
             }
             return itemCap.cast();
         }
@@ -950,7 +953,15 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     @Override
     public void returnToMainMenu(Player player, appeng.menu.ISubMenu subMenu) {
-        appeng.menu.MenuOpener.returnTo(APOrbs.ORB_MENU.get(), player,
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
+            return;
+        }
+        var type = this instanceof AdvancedEnergizingOrbBlockEntity
+                ? (this instanceof com.coala.appliedpowah.meorb.MeEnergizingOrbBlockEntity
+                        ? APOrbs.ME_ORB_MENU.get()
+                        : APOrbs.ADV_ORB_MENU.get())
+                : APOrbs.FLUIX_ORB_MENU.get();
+        appeng.menu.MenuOpener.returnTo(type, serverPlayer,
                 appeng.menu.locator.MenuLocators.forBlockEntity(this));
     }
 
@@ -959,7 +970,7 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
     @Override
     public void addAdditionalDrops(net.minecraft.world.level.Level level, BlockPos pos, List<ItemStack> drops) {
         super.addAdditionalDrops(level, pos, drops);
-        for (int i = 0; i < upgrades.getSlots(); i++) {
+        for (int i = 0; i < upgrades.size(); i++) {
             ItemStack stack = upgrades.getStackInSlot(i);
             if (!stack.isEmpty()) {
                 drops.add(stack.copy());
@@ -969,7 +980,6 @@ public class EnergizingOrbBlockEntity extends AENetworkBlockEntity
 
     @Override
     public void clearContent() {
-        super.clearContent();
         for (CraftThread page : threads) {
             for (int i = 0; i < page.getInv().getSlots(); i++) {
                 page.getInv().setStackInSlot(i, ItemStack.EMPTY);

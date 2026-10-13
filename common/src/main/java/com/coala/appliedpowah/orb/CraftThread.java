@@ -7,7 +7,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.wrapper.RangedWrapper;
 import org.jetbrains.annotations.Nullable;
-
+import owmii.powah.block.energizing.EnergizingRecipe;
 import java.util.List;
 import java.util.function.IntConsumer;
 

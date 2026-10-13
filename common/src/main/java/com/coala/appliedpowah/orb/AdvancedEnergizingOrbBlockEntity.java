@@ -180,7 +180,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     private int overflowTick;
 
     private void handleOverflowNow() {
-        handleOverflow(getMainNode().orElse(null));
+        handleOverflow(getMainNode().getNode());
     }
 
     /**

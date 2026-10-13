@@ -47,10 +47,16 @@ public final class APTooltipProvider implements TooltipProvider {
     @Override
     public void registerCommon(CommonRegistration registration) {
         registration.addBlockEntityData(EnergizingOrbBlockEntity.class, (player, orb, serverData) -> {
-            long need = orb.getRecipeEnergy();
-            if (need > 0) {
+            // Report the page that is actually reacting (fallback: first loaded page).
+            for (int p = 0; p < orb.pageCount(); p++) {
+                var thread = orb.getThread(p);
+                long need = thread.energy;
+                if (need <= 0) {
+                    continue;
+                }
                 serverData.putLong(TAG_RECIPE_ENERGY, need);
-                serverData.putLong(TAG_RECIPE_PROGRESS, Math.min(need, orb.getProgress()));
+                serverData.putLong(TAG_RECIPE_PROGRESS, Math.min(need, thread.progress));
+                return;
             }
         });
     }

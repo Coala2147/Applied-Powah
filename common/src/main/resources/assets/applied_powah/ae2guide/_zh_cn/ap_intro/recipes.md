@@ -40,19 +40,11 @@ categories:
 
 <RecipeFor id="applied_powah:fluix_energizing_orb" fallbackText="Powah 充能台 + AE2 输入总线 + AE2 接口。" />
 
-<RecipeFor id="applied_powah:advanced_energizing_orb" fallbackText="福鲁伊克斯充能台 + 7× 下界棒 + 极密能源元件。" />
+<RecipeFor id="applied_powah:advanced_energizing_orb" fallbackText="四条边中点各 1× 福鲁伊克斯充能台 + 四个角各 1× 下界棒 + 正中 1× 工程处理器。" />
 
 <RecipeFor id="applied_powah:me_energizing_orb" fallbackText="高级充能台 + AE2 样板供应器 + 2× 容量卡 + 工程处理器。" />
 
 ## 升级卡
 
-线程卡与并行卡最多堆叠 1，每个系列同时只能装一张。顶档需要**奇异物质**；
-上一档卡置于中间。
-
-<RecipeFor id="applied_powah:thread_card_p1" fallbackText="下界之星 + 高级卡 + 振动石英玻璃 + 2 号空间元件。" />
-
-<RecipeFor id="applied_powah:thread_card_p8" fallbackText="线程卡+4 + 运算处理器 + 空间元件 + 奇异物质。" />
-
-<RecipeFor id="applied_powah:parallel_card_x2" fallbackText="高级卡 + 下界之星 + 合成加速卡 + 振动石英玻璃。" />
-
-<RecipeFor id="applied_powah:parallel_card_x8" fallbackText="并行卡×6 + 运算处理器 + 振动石英玻璃 + 奇异物质。" />
+升级槽使用 AE2 原版卡——本模组不再提供自定义卡，详见
+[升级卡](upgrade-cards.md) 页。

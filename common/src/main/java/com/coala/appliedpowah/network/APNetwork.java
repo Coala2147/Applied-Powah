@@ -27,17 +27,12 @@ public final class APNetwork {
             return;
         }
         registered = true;
-        CHANNEL.registerMessage(0, C2SToggleAutoExport.class,
-                C2SToggleAutoExport::encode,
-                C2SToggleAutoExport::decode,
-                C2SToggleAutoExport::handle,
-                Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(1, C2SOpenPatternMenu.class,
+        CHANNEL.registerMessage(0, C2SOpenPatternMenu.class,
                 C2SOpenPatternMenu::encode,
                 C2SOpenPatternMenu::decode,
                 C2SOpenPatternMenu::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(2, C2SOpenOrbMenu.class,
+        CHANNEL.registerMessage(1, C2SOpenOrbMenu.class,
                 C2SOpenOrbMenu::encode,
                 C2SOpenOrbMenu::decode,
                 C2SOpenOrbMenu::handle,
