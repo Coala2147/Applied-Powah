@@ -7,7 +7,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
-import com.coala.appliedpowah.orb.EnergizingOrbLogic;
+import com.coala.appliedpowah.orb.CraftThread;
 import com.coala.appliedpowah.orb.OrbCraftGate;
 import net.minecraft.world.item.ItemStack;
 
@@ -62,28 +62,30 @@ public class MePatternLogic extends PatternProviderLogic {
     }
 
     /**
-     * Target inventory for blocking = orb craft slots 1..6.
+     * Target inventory for blocking = all page craft input slots.
      * Match AE2 {@code containsPatternInput}: any available pattern's input key
      * (secondary dropped) present in the target.
      */
     private boolean craftSlotsContainPatternInput() {
-        var inv = meOrb.getInv();
-        int slots = Math.min(EnergizingOrbLogic.SLOTS, inv.getSlots());
-        for (int slot = 1; slot < slots; slot++) {
-            ItemStack stack = inv.getStackInSlot(slot);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            AEItemKey itemKey = AEItemKey.of(stack);
-            if (itemKey == null) {
-                continue;
-            }
-            AEKey flat = itemKey.dropSecondary();
-            for (IPatternDetails p : getAvailablePatterns()) {
-                for (var input : p.getInputs()) {
-                    for (var cand : input.getPossibleInputs()) {
-                        if (cand.what().dropSecondary().equals(flat)) {
-                            return true;
+        for (CraftThread page : meOrb.getThreads()) {
+            var inv = page.getInv();
+            int slots = Math.min(CraftThread.INPUTS, inv.getSlots());
+            for (int slot = 0; slot < slots; slot++) {
+                ItemStack stack = inv.getStackInSlot(slot);
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                AEItemKey itemKey = AEItemKey.of(stack);
+                if (itemKey == null) {
+                    continue;
+                }
+                AEKey flat = itemKey.dropSecondary();
+                for (IPatternDetails p : getAvailablePatterns()) {
+                    for (var input : p.getInputs()) {
+                        for (var cand : input.getPossibleInputs()) {
+                            if (cand.what().dropSecondary().equals(flat)) {
+                                return true;
+                            }
                         }
                     }
                 }

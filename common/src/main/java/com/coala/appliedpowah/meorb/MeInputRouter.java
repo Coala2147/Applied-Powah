@@ -78,7 +78,7 @@ public final class MeInputRouter {
         }
     }
 
-    private static List<AEItemKey> expandSingles(KeyCounter[] inputHolders) {
+    public static List<AEItemKey> expandSingles(KeyCounter[] inputHolders) {
         if (inputHolders == null) {
             return null;
         }

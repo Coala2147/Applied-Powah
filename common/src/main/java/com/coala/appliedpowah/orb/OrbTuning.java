@@ -1,86 +1,77 @@
 package com.coala.appliedpowah.orb;
 
 /**
- * T/P energy model (开发总报告 §2.3). Pure math — unit-testable.
+ * Pure tuning math for the multi-page orb rewrite (issues.md 其他-10).
+ * No Minecraft types — unit-testable.
  *
  * <pre>
- * t_cap = 1 + Σ(thread_card) ∈ {1,2,3,5,9}
- * P     ∈ {1,2,4,6,8}
- * n     = Σ(energy_card) ≤ 4
- * waste = 0.90 × (t_act / 9)
- * E_need = E0 × P × (1 + waste)
- * C     = C0 × (1.125)^n
- * r_in  = 10% + 20%×n
- * r_out = 1% + 2.25%×n
+ * speed cards (AE2 {@code ae2:speed_card}, max 5):
+ *   factor(cards) = {1, 2, 3, 5, 10, 25}
+ *   stepEnergy    = E0 × factor × ticks / 100        (FE wanted per tick)
+ *   → one completion always costs exactly E0, whatever the card count
+ *     (AAE reaction-chamber model: energy per tick ∝ speed, total constant).
+ * energy cards (AE2 {@code ae2:energy_card}, max 4) — supply bandwidth only:
+ *   C     = C0 × (1.125)^n
+ *   r_in  = 10% + 20%×n
+ *   r_out = 1% + 2.25%×n
  * </pre>
  */
 public final class OrbTuning {
 
-    public static final double WASTE_MAX = 0.90;
-    public static final int THREAD_CAP = 9;
+    public static final int SPEED_CARD_MAX = 5;
+    public static final int ENERGY_CARD_MAX = 4;
     public static final double CACHE_GROWTH_PER_CARD = 0.125;
     public static final double R_IN0 = 0.10;
     public static final double R_IN_STEP = 0.20;
     public static final double R_OUT0 = 0.01;
     public static final double R_OUT_STEP = 0.0225;
-    public static final int ENERGY_CARD_MAX = 4;
-    public static final int PARALLEL_LEVELS = 4;
+
+    /** 0..5 acceleration cards → progress factor (percent per tick at full power). */
+    private static final int[] SPEED_FACTORS = {1, 2, 3, 5, 10, 25};
 
     private OrbTuning() {
     }
 
-    /** t_cap = 1 + bonus; bonus = Σ thread-card values (1/2/4/8), capped at 9. */
-    public static int threadCap(int threadBonus) {
-        return Math.max(1, Math.min(THREAD_CAP, 1 + Math.max(0, threadBonus)));
+    /** Clamp card count into [0, SPEED_CARD_MAX]. */
+    public static int clampSpeedCards(int cards) {
+        return Math.max(0, Math.min(SPEED_CARD_MAX, cards));
     }
 
-    /** Clamp parallel multiplier to {1,2,4,6,8} — take the max valid installed card. */
-    public static int parallelOf(int raw) {
-        if (raw >= 8) {
-            return 8;
-        }
-        if (raw >= 6) {
-            return 6;
-        }
-        if (raw >= 4) {
-            return 4;
-        }
-        if (raw >= 2) {
-            return 2;
-        }
-        return 1;
+    public static int clampEnergyCards(int cards) {
+        return Math.max(0, Math.min(ENERGY_CARD_MAX, cards));
     }
 
-    public static double waste(int tAct) {
-        int t = Math.max(0, Math.min(THREAD_CAP, tAct));
-        return WASTE_MAX * t / THREAD_CAP;
+    /** Progress factor for an installed acceleration-card count (0 → 1). */
+    public static int speedFactor(int cards) {
+        return SPEED_FACTORS[clampSpeedCards(cards)];
     }
 
-    /** E_need = E0 × P × (1 + waste). At least 1. */
-    public static long eNeed(long e0, int p, int tAct) {
-        if (e0 <= 0) {
+    /**
+     * FE a page wants this tick to advance at full speed.
+     * Capped callers reduce it to the remaining recipe need.
+     */
+    public static long stepEnergy(long e0, int speedCards, int ticks) {
+        if (e0 <= 0 || ticks <= 0) {
             return 0;
         }
-        double mult = Math.max(1, p) * (1.0 + waste(tAct));
-        return Math.max(1L, Math.round(e0 * mult));
+        double want = e0 * (double) speedFactor(speedCards) * ticks / 100.0;
+        return Math.max(1L, Math.round(want));
     }
 
     /** C = C0 × (1.125)^n */
     public static long cacheMax(long c0, int energyCards) {
-        int n = Math.max(0, Math.min(ENERGY_CARD_MAX, energyCards));
+        int n = clampEnergyCards(energyCards);
         return Math.max(1L, Math.round(c0 * Math.pow(1.0 + CACHE_GROWTH_PER_CARD, n)));
     }
 
     /** Network pull fraction of C per charge step. */
     public static double rIn(int energyCards) {
-        int n = Math.max(0, Math.min(ENERGY_CARD_MAX, energyCards));
-        return R_IN0 + R_IN_STEP * n;
+        return R_IN0 + R_IN_STEP * clampEnergyCards(energyCards);
     }
 
     /** Output fraction of C per tick. */
     public static double rOut(int energyCards) {
-        int n = Math.max(0, Math.min(ENERGY_CARD_MAX, energyCards));
-        return R_OUT0 + R_OUT_STEP * n;
+        return R_OUT0 + R_OUT_STEP * clampEnergyCards(energyCards);
     }
 
     public static long rateLimit(long cacheMax, double fraction) {

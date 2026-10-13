@@ -1,6 +1,5 @@
 package com.coala.appliedpowah.orb;
 
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGridNode;
@@ -19,11 +18,12 @@ import net.minecraftforge.items.ItemStackHandler;
 /**
  * Advanced Energizing Orb.
  * <ul>
+ *   <li>4 craft pages (explicit threads, ExtendedAE ex-molecular-assembler layout).</li>
  *   <li>4 rod slots × up to 16 AP rods; same AE/ME family; mixed tiers OK.</li>
  *   <li>Built-in cache = Extreme Dense Energy Cell equivalent (FE), works with zero rods.</li>
- *   <li>Rod capacities stack on top of the built-in cache.</li>
- *   <li>Rod items never enter craft input slots.</li>
- *   <li>Grid: BOTTOM + faces next to PatternProvider (matches tested ground cable).</li>
+ *   <li>Rod capacities stack on top of the built-in cache; energy cards scale both
+ *       cache cap and network-pull rate (supply bandwidth for acceleration cards).</li>
+ *   <li>Rod items never enter craft input slots; rods never beam into this tier.</li>
  * </ul>
  */
 public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
@@ -35,42 +35,25 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     public static final long BASE_CACHE_FE =
             (long) com.coala.appliedpowah.energycell.ExtremeDenseEnergyCellBlock.MAX_POWER * 2L;
 
-    /** 6-slot universal upgrade cards (thread / parallel / energy). */
-    protected final UpgradeCardInv upgradeInv = new UpgradeCardInv() {
-        @Override
-        protected void onContentsChanged(int slot) {
-            setChanged();
-            checkRecipe();
-            getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
-        }
-    };
-
-    public UpgradeCardInv getUpgradeInv() {
-        return upgradeInv;
-    }
-
     /** Rods must not beam into this tier (rod slots + network pull instead). */
     @Override
     public boolean rodFeedable() {
         return false;
     }
 
-    public int energyCardCount() {
-        return upgradeInv.countEnergy();
+    @Override
+    public int pageCount() {
+        return PAGES;
     }
 
-    public int parallelMultiplier() {
-        return OrbTuning.parallelOf(upgradeInv.parallelValue());
-    }
-
-    public int threadCap() {
-        return OrbTuning.threadCap(upgradeInv.threadBonus());
-    }
+    /** Explicit 4 threads for Advanced / ME tiers (issues.md 其他-10). */
+    public static final int PAGES = 4;
 
     private final ItemStackHandler rodInv = new ItemStackHandler(ROD_SLOTS) {
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
+            handleOverflowNow();
             getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
         }
 
@@ -169,14 +152,8 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     }
 
     @Override
-    protected long eNeedFor(owmii.powah.block.energizing.EnergizingRecipe found) {
-        // P from parallel card × available sets; t_act = 1 until multi-lane lands
-        return OrbTuning.eNeed(found.getEnergy(), effectiveParallel(), 1);
-    }
-
-    @Override
     public double getAECurrentPower() {
-        return isAeDisplay() ? bufferFe / 2.0 : bufferFe / 2.0;
+        return bufferFe / 2.0;
     }
 
     @Override
@@ -185,8 +162,8 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     }
 
     @Override
-    public AccessRestriction getPowerFlow() {
-        return AccessRestriction.NO_ACCESS;
+    public appeng.api.config.AccessRestriction getPowerFlow() {
+        return appeng.api.config.AccessRestriction.NO_ACCESS;
     }
 
     private long cacheMaxFe() {
@@ -198,121 +175,19 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         return bufferFe < cacheMaxFe();
     }
 
-    /**
-     * Virtual lanes beyond the physical input set (T cards). Lane 0 = physical slots.
-     * GTO-style status: how many lanes are live and what each is doing.
-     */
-    protected final CraftLane[] extraLanes = new CraftLane[8];
+    // ---- overflow drain bookkeeping (rod pull-out leaves FE above cache cap) ----
 
-    public int activeLanes() {
-        int n = containRecipe ? 1 : 0;
-        for (CraftLane lane : extraLanes) {
-            if (lane != null && lane.active) {
-                n++;
-            }
-        }
-        return n;
-    }
-
-    /** GTO ParallelProvider-style one-liner for the GUI. */
-    public String laneStatusSummary() {
-        int tCap = threadCap();
-        int p = parallelMultiplier();
-        int live = activeLanes();
-        StringBuilder sb = new StringBuilder();
-        sb.append("T ").append(live).append('/').append(tCap)
-                .append("  P ×").append(p);
-        for (int i = 0; i < extraLanes.length; i++) {
-            CraftLane lane = extraLanes[i];
-            if (lane == null || !lane.active) {
-                continue;
-            }
-            sb.append("  |").append(i + 2).append(": ").append(lane.progressPercent()).append('%');
-        }
-        return sb.toString();
-    }
-
-    /** Distribute incoming FE to the physical recipe then each extra lane. */
-    protected long fillLanes(long amount) {
-        // Always sweep ready extra lanes (even amount=0).
-        for (CraftLane lane : extraLanes) {
-            if (lane != null && lane.active && lane.ready()) {
-                completeLane(lane);
-            }
-        }
-        long left = amount > 0 ? fillRecipeEnergy(amount) : 0;
-        long rest = amount - left;
-        if (rest <= 0) {
-            return left;
-        }
-        for (CraftLane lane : extraLanes) {
-            if (lane == null || !lane.active || rest <= 0) {
-                continue;
-            }
-            long took = lane.fill(rest);
-            left += took;
-            rest -= took;
-            if (lane.ready()) {
-                completeLane(lane);
-            }
-        }
-        return left;
-    }
-
-    /** Finish one virtual lane: P copies of one input set. */
-    protected void completeLane(CraftLane lane) {
-        if (level == null || recipe == null || !lane.ready()) {
-            return;
-        }
-        ItemStack one = com.coala.appliedpowah.orb.EnergizingOrbLogic.resultOf(level, recipe);
-        if (one.isEmpty()) {
-            return;
-        }
-        ItemStack result = one.copy();
-        result.setCount(Math.min(OrbResultRules.MAX_SLOT, one.getCount() * lane.batch));
-        if (!canSettleResult(result)) {
-            return;
-        }
-        boolean saved = completing;
-        completing = true;
-        try {
-            lane.clear();
-            settleResult(result);
-        } finally {
-            completing = saved;
-        }
-        setChanged();
-        markForUpdate();
-    }
-
-    /** Try to park a full input set on a free virtual lane. */
-    public boolean startExtraLane(java.util.List<ItemStack> set, long eNeed, int parallel) {
-        for (int i = 0; i < extraLanes.length; i++) {
-            if (i >= threadCap() - 1) {
-                return false;
-            }
-            CraftLane lane = extraLanes[i];
-            if (lane == null) {
-                lane = new CraftLane();
-                extraLanes[i] = lane;
-            }
-            if (lane.active) {
-                continue;
-            }
-            lane.start(set, eNeed, parallel, recipe != null ? String.valueOf(recipe.getId()) : "");
-            return true;
-        }
-        return false;
-    }
-
-    /** Overflow drain bookkeeping (rod pull-out leaves FE above cache cap). */
     private int overflowTick;
+
+    private void handleOverflowNow() {
+        handleOverflow(getMainNode().orElse(null));
+    }
 
     /**
      * When rods are removed, leftover FE may exceed the new cache cap.
      * 1) Try to push the excess back into the AE network.
      * 2) Otherwise every 20t shed 5% of current FE (min 5% of BASE_CACHE_FE)
-     *    until bufferFe ≤ BASE_CACHE_FE; the final step sheds exactly the excess.
+     *    until bufferFe ≤ cap; the final step sheds exactly the excess.
      */
     private void handleOverflow(IGridNode node) {
         long cap = cacheMaxFe();
@@ -365,15 +240,101 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
     }
 
     /**
-     * Recipe progress first (unbounded by cache), remainder into the energy cell.
-     * Cache never blocks a high-cost recipe (§1.1).
+     * Network pull fills recipe progress first, then the built-in + rod cache.
+     * A full cache must not block a high-cost recipe. Works with or without rods.
      */
     @Override
+    protected void pullFromNetwork(IGridNode node) {
+        // Always handle rod-pull-out overflow first (works even if pull is disabled).
+        handleOverflow(node);
+        if (!APConfig.COMMON.orbPullFromNetwork.get() || node == null || !node.isActive()) {
+            feedPagesFromBuffer();
+            return;
+        }
+        long cacheMax = cacheMaxFe();
+        long cacheRoom = OrbEnergyMath.cacheRoom(bufferFe, cacheMax);
+        long recipeNeed = recipeNeed();
+        // Still try to complete from existing progress / buffer even with no pull room.
+        if (cacheRoom <= 0 && recipeNeed <= 0) {
+            feedPagesFromBuffer();
+            completeReady();
+            return;
+        }
+        long room = cacheRoom + recipeNeed; // may pull past cache cap when a recipe needs it
+        long rateCap = OrbTuning.rateLimit(cacheMaxFe(), OrbTuning.rIn(energyCardCount()));
+        if (rodsAreAe()) {
+            extractAeFromGrid(node, room, rateCap);
+        } else if (ModList.get().isLoaded("appflux")) {
+            var storage = node.getGrid().getService(appeng.api.networking.storage.IStorageService.class);
+            if (storage == null) {
+                feedPagesFromBuffer();
+                return;
+            }
+            long want = Math.min(APConfig.COMMON.meBurstFe.get(), Math.min(room, rateCap > 0 ? rateCap : room));
+            if (want <= 0) {
+                feedPagesFromBuffer();
+                return;
+            }
+            long got = FluxBridge.extractFe(storage, want);
+            if (got > 0) {
+                bufferFe += got;
+            }
+        } else {
+            // No rods (or no appflux): still pull AE from grid as FE (1 AE = 2 FE).
+            extractAeFromGrid(node, room, rateCap);
+        }
+        feedPagesFromBuffer();
+        completeReady();
+        updateWarning();
+        setChanged();
+        markForUpdate();
+        pushEnergyOut(node);
+    }
+
+    private void extractAeFromGrid(IGridNode node, long room, long rateCap) {
+        IEnergyService energy = node.getGrid().getEnergyService();
+        double max = Math.max(1.0, energy.getMaxStoredPower());
+        double reserve = max * APConfig.COMMON.networkReserveRatio.get();
+        double available = Math.max(0.0, energy.getStoredPower() - reserve);
+        double wantAe = Math.min((double) APConfig.COMMON.aeBurstAe.get(), available);
+        double wantFe = wantAe * 2.0;
+        long capFe = Math.min(room, rateCap > 0 ? rateCap : room);
+        if (wantFe > capFe) {
+            wantFe = capFe;
+            wantAe = wantFe / 2.0;
+        }
+        if (wantAe <= 0) {
+            return;
+        }
+        double got = energy.extractAEPower(wantAe, Actionable.MODULATE, PowerMultiplier.ONE);
+        if (got > 0) {
+            bufferFe += Math.round(got * 2.0);
+        }
+    }
+
+    /** FE still missing across all loaded pages. */
+    private long recipeNeed() {
+        long need = 0;
+        for (CraftThread page : threads) {
+            need += page.remaining();
+        }
+        return need;
+    }
+
+    private void completeReady() {
+        for (CraftThread page : threads) {
+            if (page.ready()) {
+                completeIfPossible(page);
+            }
+        }
+    }
+
+    @Override
     public long fillEnergy(long amount) {
-        if (level == null || amount <= 0 || completing) {
+        if (level == null || amount <= 0 || settling) {
             return 0;
         }
-        long filled = fillLanes(amount);
+        long filled = routeEnergyToPages(amount, 1);
         long rest = amount - filled;
         if (rest > 0) {
             long room = OrbEnergyMath.cacheRoom(bufferFe, cacheMaxFe());
@@ -383,118 +344,22 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
                 filled += toCache;
             }
         }
-        feedProgressFromBuffer();
+        completeReady();
         updateWarning();
         setChanged();
         markForUpdate();
         return filled;
     }
 
-    /**
-     * Network pull fills recipe progress first, then the built-in + rod cache.
-     * A full cache must not block recipe fill (§1.1). Works with or without rods.
-     */
     @Override
-    protected void pullFromNetwork(IGridNode node) {
-        // Always handle rod-pull-out overflow first (works even if pull is disabled).
-        handleOverflow(node);
-        if (!APConfig.COMMON.orbPullFromNetwork.get() || node == null || !node.isActive()) {
-            return;
-        }
-        long cacheMax = cacheMaxFe();
-        long cacheRoom = OrbEnergyMath.cacheRoom(bufferFe, cacheMax);
-        long recipeNeed = recipe != null && recipeEnergy > 0
-                ? Math.max(0L, recipeEnergy - recipeProgress) : 0L;
-        // Still try to complete from existing progress / buffer even with no pull room.
-        if (cacheRoom <= 0 && recipeNeed <= 0) {
-            feedProgressFromBuffer();
-            if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
-                completeIfPossible();
-            }
-            return;
-        }
-        long room = cacheRoom + recipeNeed; // may pull past cache cap when a recipe needs it
-        long rateCap = OrbTuning.rateLimit(cacheMaxFe(), OrbTuning.rIn(energyCardCount()));
-        if (rodsAreAe()) {
-            IEnergyService energy = node.getGrid().getEnergyService();
-            double max = Math.max(1.0, energy.getMaxStoredPower());
-            double reserve = max * APConfig.COMMON.networkReserveRatio.get();
-            double available = Math.max(0.0, energy.getStoredPower() - reserve);
-            double wantAe = Math.min((double) APConfig.COMMON.aeBurstAe.get(), available);
-            double wantFe = wantAe * 2.0;
-            long capFe = Math.min(room, rateCap > 0 ? rateCap : room);
-            if (wantFe > capFe) {
-                wantFe = capFe;
-                wantAe = wantFe / 2.0;
-            }
-            if (wantAe <= 0) {
-                feedProgressFromBuffer();
-                return;
-            }
-            double got = energy.extractAEPower(wantAe, Actionable.MODULATE, PowerMultiplier.ONE);
-            if (got > 0) {
-                bufferFe += Math.round(got * 2.0);
-            }
-        } else if (ModList.get().isLoaded("appflux")) {
-            var storage = node.getGrid().getService(appeng.api.networking.storage.IStorageService.class);
-            if (storage == null) {
-                return;
-            }
-            long want = Math.min(APConfig.COMMON.meBurstFe.get(), Math.min(room, rateCap > 0 ? rateCap : room));
-            if (want <= 0) {
-                feedProgressFromBuffer();
-                return;
-            }
-            long got = FluxBridge.extractFe(storage, want);
-            if (got > 0) {
-                bufferFe += got;
-            }
-        } else if (rodsPresent() && rodsAreAe()) {
-            // AE rods but appflux path not taken — already handled above.
-        } else {
-            // No rods and FE family: still pull AE from grid as FE (1 AE = 2 FE).
-            IEnergyService energy = node.getGrid().getEnergyService();
-            double max = Math.max(1.0, energy.getMaxStoredPower());
-            double reserve = max * APConfig.COMMON.networkReserveRatio.get();
-            double available = Math.max(0.0, energy.getStoredPower() - reserve);
-            double wantAe = Math.min((double) APConfig.COMMON.aeBurstAe.get(), available);
-            double wantFe = wantAe * 2.0;
-            long capFe = Math.min(room, rateCap > 0 ? rateCap : room);
-            if (wantFe > capFe) {
-                wantFe = capFe;
-                wantAe = wantFe / 2.0;
-            }
-            if (wantAe <= 0) {
-                feedProgressFromBuffer();
-                return;
-            }
-            double got = energy.extractAEPower(wantAe, Actionable.MODULATE, PowerMultiplier.ONE);
-            if (got > 0) {
-                bufferFe += Math.round(got * 2.0);
-            }
-        }
-        // Split: recipe progress first, cache keeps the rest; overflow sheds cache only.
-        feedProgressFromBuffer();
-        fillLanes(0); // complete any already-ready extra lanes
-        if (recipe == null && !completing) {
-            checkRecipe();
-        }
-        feedProgressFromBuffer();
-        fillLanes(0);
-        if (OrbEnergyMath.ready(recipeProgress, recipeEnergy)) {
-            completeIfPossible();
-        }
-        updateWarning();
-        setChanged();
-        markForUpdate();
-        pushEnergyOut(node);
+    protected boolean wantsWork() {
+        return wantsCacheFill() || rodsPresent();
     }
 
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put("rodInv", rodInv.serializeNBT());
-        tag.put("upgradeInv", upgradeInv.serializeNBT());
     }
 
     @Override
@@ -503,14 +368,11 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         if (tag.contains("rodInv")) {
             rodInv.deserializeNBT(tag.getCompound("rodInv"));
         }
-        if (tag.contains("upgradeInv")) {
-            upgradeInv.deserializeNBT(tag.getCompound("upgradeInv"));
-        }
     }
 
-    // ---- FE output like an energy cell: at most 1% of cache cap per tick ----
+    // ---- FE output like an energy cell: at most r_out of cache cap per tick ----
 
-    /** Max FE this orb may push/extract per tick = r_out × cache (1%→10% with energy cards). */
+    /** Max FE this orb may push/extract per tick = r_out × cache. */
     public long maxOutputPerTick() {
         return OrbTuning.rateLimit(cacheMaxFe(), OrbTuning.rOut(energyCardCount()));
     }
@@ -558,7 +420,7 @@ public class AdvancedEnergizingOrbBlockEntity extends EnergizingOrbBlockEntity
         return false;
     }
 
-    /** Reset the per-tick output budget and push up to 1% into AE network. */
+    /** Reset the per-tick output budget and push up to r_out into AE network. */
     private void pushEnergyOut(IGridNode node) {
         extractedThisTick = 0;
         if (node == null || !node.isActive() || bufferFe <= 0) {

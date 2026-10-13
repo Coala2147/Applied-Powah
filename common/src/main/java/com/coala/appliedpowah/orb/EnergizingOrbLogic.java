@@ -1,5 +1,6 @@
 package com.coala.appliedpowah.orb;
 
+import com.coala.appliedpowah.AppliedPowah;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.Level;
@@ -12,23 +13,24 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
- * Shared energizing recipe helpers. Slot layout matches Powah orb:
- * slot 0 = output, slots 1..6 = inputs.
+ * Shared energizing recipe helpers for one {@link CraftThread} page.
+ * Slot layout per page: 0..5 = inputs, 6 = output (see {@link CraftThread}).
  */
 public final class EnergizingOrbLogic {
-    public static final int SLOTS = 7;
-    public static final int OUTPUT = 0;
+    public static final int SLOTS = CraftThread.SIZE;
+    public static final int OUTPUT = CraftThread.OUTPUT;
+    public static final int INPUTS = CraftThread.INPUTS;
 
     private EnergizingOrbLogic() {
     }
 
     /**
      * Input slot: empty slot + non-rod. Output slot is independent (AE2 machine
-     * semantics) — having a result in slot 0 does not block new inputs.
+     * semantics) — having a result in the output slot does not block new inputs.
      * Rods never enter craft input slots.
      */
     public static boolean canInsertInput(ItemStackHandler inv, int index, ItemStack stack) {
-        if (index == OUTPUT || index >= inv.getSlots() || stack.isEmpty()) {
+        if (index == OUTPUT || index >= inv.getSlots() || index < 0 || stack.isEmpty()) {
             return false;
         }
         if (stack.getItem() instanceof com.coala.appliedpowah.chargingrod.RodBlockItem) {
@@ -38,15 +40,15 @@ public final class EnergizingOrbLogic {
     }
 
     @Nullable
-    public static EnergizingRecipe findRecipe(Level level, ItemStackHandler inv) {
-        if (level == null) {
+    public static EnergizingRecipe findRecipe(Level level, ItemStackHandler pageInv) {
+        if (level == null || pageInv == null) {
             return null;
         }
         try {
             // Count filled input slots first — Powah requires exact ingredient cardinality.
             int filled = 0;
-            for (int i = 1; i < SLOTS && i < inv.getSlots(); i++) {
-                if (!inv.getStackInSlot(i).isEmpty()) {
+            for (int i = 0; i < INPUTS && i < pageInv.getSlots(); i++) {
+                if (!pageInv.getStackInSlot(i).isEmpty()) {
                     filled++;
                 }
             }
@@ -55,11 +57,11 @@ public final class EnergizingOrbLogic {
             }
             owmii.powah.lib.logistics.inventory.ItemStackHandler powahInv =
                     new owmii.powah.lib.logistics.inventory.ItemStackHandler(SLOTS);
-            for (int i = 0; i < SLOTS && i < inv.getSlots(); i++) {
+            for (int i = 0; i < SLOTS && i < pageInv.getSlots(); i++) {
                 if (i == OUTPUT) {
                     powahInv.setStackInSlot(i, ItemStack.EMPTY);
                 } else {
-                    ItemStack src = inv.getStackInSlot(i);
+                    ItemStack src = pageInv.getStackInSlot(i);
                     powahInv.setStackInSlot(i, src.isEmpty() ? ItemStack.EMPTY : src.copy());
                 }
             }
@@ -72,6 +74,7 @@ public final class EnergizingOrbLogic {
             }
             return found;
         } catch (Throwable t) {
+            AppliedPowah.LOG.warn("findRecipe failed: {}", t.toString());
             return null;
         }
     }
@@ -83,15 +86,15 @@ public final class EnergizingOrbLogic {
             try {
                 return recipe.getResultItem().copy();
             } catch (Exception e2) {
-                com.coala.appliedpowah.AppliedPowah.LOG.error("recipe result unreadable: {}", e2.toString());
+                AppliedPowah.LOG.error("recipe result unreadable: {}", e2.toString());
                 return ItemStack.EMPTY;
             }
         }
     }
 
-    public static void clearInputs(ItemStackHandler inv) {
-        for (int i = 1; i < SLOTS && i < inv.getSlots(); i++) {
-            inv.setStackInSlot(i, ItemStack.EMPTY);
+    public static void clearInputs(ItemStackHandler pageInv) {
+        for (int i = 0; i < INPUTS && i < pageInv.getSlots(); i++) {
+            pageInv.setStackInSlot(i, ItemStack.EMPTY);
         }
     }
 

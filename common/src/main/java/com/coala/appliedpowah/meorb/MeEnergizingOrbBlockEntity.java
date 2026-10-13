@@ -1,7 +1,7 @@
 package com.coala.appliedpowah.meorb;
 
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
+import appeng.api.config.AccessRestriction;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.storage.IStorageService;
@@ -18,7 +18,11 @@ import appeng.util.SettingsFrom;
 import com.coala.appliedpowah.AppliedPowah;
 import com.coala.appliedpowah.orb.APOrbs;
 import com.coala.appliedpowah.orb.AdvancedEnergizingOrbBlockEntity;
+import com.coala.appliedpowah.orb.CraftThread;
 import com.coala.appliedpowah.orb.EnergizingOrbLogic;
+import com.coala.appliedpowah.orb.EjectMode;
+import com.coala.appliedpowah.orb.OrbEjectRules;
+import com.coala.appliedpowah.orb.OrbResultRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -27,6 +31,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -34,15 +39,18 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * ME 充能台 / ME Energizing Orb — 机体复用高级充能台，样板页 EAE 1.21.1，
+ * ME 充能台 / ME Energizing Orb — 高级台机体 + 4 页多线程 + 内置样板供应器。
  * 自合成引擎照搬 Mek-Energistics（{@link MeSelfCraftSettings} / {@link MeInputRouter}，
  * 命名空间 {@code com.coala.appliedpowah.meorb}）。
+ *
+ * <p>Grid connectivity is BOTTOM-only (inherited) so an adjacent pattern provider
+ * no longer sees a grid connection toward us and pushes its plans normally
+ * (issues 0.6.0-7).</p>
  */
 public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         implements PatternProviderLogicHost {
 
     public static final int PATTERN_SLOTS = 36;
-    public static final int CRAFT_SLOTS = 6;
 
     private final PatternProviderLogic patterns = new MePatternLogic(getMainNode(), this, PATTERN_SLOTS);
     private final MeSelfCraftSettings selfCraft = new MeSelfCraftSettings();
@@ -81,11 +89,6 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     @Override
-    public AEItemKey getTerminalIcon() {
-        return AEItemKey.of(new ItemStack(APOrbs.ME_ORB_ITEM.get()));
-    }
-
-    @Override
     public ItemStack getMainMenuIcon() {
         return new ItemStack(APOrbs.ME_ORB_ITEM.get());
     }
@@ -105,6 +108,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super.exportSettings(mode, output, player);
         if (mode == SettingsFrom.MEMORY_CARD) {
             patterns.exportSettings(output);
+            output.putInt("apEjectMode", ejectMode.ordinal());
+            output.putInt("apEjectSides", allowedSidesMask());
         }
     }
 
@@ -113,6 +118,20 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         super.importSettings(mode, input, player);
         if (mode == SettingsFrom.MEMORY_CARD) {
             patterns.importSettings(input, player);
+            if (input.contains("apEjectMode")) {
+                int ordinal = input.getInt("apEjectMode");
+                EjectMode[] values = EjectMode.values();
+                setEjectMode(ordinal >= 0 && ordinal < values.length ? values[ordinal] : EjectMode.OFF);
+            }
+            if (input.contains("apEjectSides")) {
+                int mask = input.getInt("apEjectSides");
+                allowedOutputs.clear();
+                for (Direction dir : Direction.values()) {
+                    if ((mask & (1 << dir.ordinal())) != 0) {
+                        allowedOutputs.add(dir);
+                    }
+                }
+            }
         }
     }
 
@@ -138,7 +157,7 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         patterns.writeToNBT(tag);
         selfCraft.save(tag);
         tag.putBoolean("PassiveCraftingEnabled", passiveCraftingEnabled);
-        // inputFromCpuOrder is transient — never persist (sticky true forced returnInv).
+        // page.fromCpuOrder is transient — never persist (sticky true forced returnInv).
     }
 
     @Override
@@ -147,8 +166,10 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         patterns.readFromNBT(tag);
         selfCraft.load(tag);
         passiveCraftingEnabled = tag.getBoolean("PassiveCraftingEnabled");
-        inputFromCpuOrder = false;
-        providerReturnSide = null;
+        for (CraftThread page : threads) {
+            page.fromCpuOrder = false;
+            page.providerReturnSide = null;
+        }
     }
 
     @Override
@@ -163,11 +184,11 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     }
 
     public boolean isCrafting() {
-        return containRecipe;
+        return containRecipe();
     }
 
     public boolean hasPendingProduct() {
-        if (!inv.getStackInSlot(EnergizingOrbLogic.OUTPUT).isEmpty()) {
+        if (anyPageHasProduct()) {
             return true;
         }
         var ret = patterns.getReturnInv();
@@ -176,18 +197,25 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
 
     /** {@link MeInputRouter} 事务式投料（自合成 / 内部路径，不算 CPU 下单）。 */
     public boolean routePatternInputs(KeyCounter[] inputHolder) {
-        inputFromCpuOrder = false;
         return MeInputRouter.route(inputHolder, craftPorts());
     }
 
     /**
-     * CPU pushPattern 下单投料 — 产物走 returnInv 回网给 CPU 结算。
-     * 标志仅在 pushPattern→完成 之间存活，不进 NBT。
+     * Pattern push into a free page — 产物走 returnInv 回网给 CPU 结算
+     * (only when the eject mode is NETWORK, see {@link OrbEjectRules}).
      */
     public boolean acceptCpuPatternInputs(KeyCounter[] inputHolder) {
-        boolean ok = MeInputRouter.route(inputHolder, craftPorts());
-        inputFromCpuOrder = ok;
-        return ok;
+        List<AEItemKey> singles = MeInputRouter.expandSingles(inputHolder);
+        if (singles == null || singles.isEmpty() || singles.size() > CraftThread.INPUTS) {
+            return false;
+        }
+        CraftThread page = findPageFor(singles);
+        if (page == null || !page.accept(singles)) {
+            return false;
+        }
+        page.fromCpuOrder = true;
+        checkRecipe(page);
+        return true;
     }
 
     public boolean isPassiveCraftingEnabled() {
@@ -200,100 +228,94 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         markForUpdate();
     }
 
+    /** One-item input port per page input slot (transactional, full rollback). */
     private List<MeInputRouter.InputPort> craftPorts() {
-        List<MeInputRouter.InputPort> ports = new ArrayList<>(CRAFT_SLOTS);
-        for (int slot = 1; slot <= CRAFT_SLOTS && slot < inv.getSlots(); slot++) {
-            final int s = slot;
-            ports.add(new MeInputRouter.InputPort() {
-                @Override
-                public boolean empty() {
-                    return inv.getStackInSlot(s).isEmpty();
-                }
+        List<MeInputRouter.InputPort> ports = new ArrayList<>();
+        for (CraftThread page : threads) {
+            var inv = page.getInv();
+            for (int slot = 0; slot < CraftThread.INPUTS && slot < inv.getSlots(); slot++) {
+                final int s = slot;
+                ports.add(new MeInputRouter.InputPort() {
+                    @Override
+                    public boolean empty() {
+                        return inv.getStackInSlot(s).isEmpty();
+                    }
 
-                @Override
-                public boolean supports(AEItemKey key) {
-                    return EnergizingOrbLogic.canInsertInput(inv, s, key.toStack(1));
-                }
+                    @Override
+                    public boolean supports(AEItemKey key) {
+                        return EnergizingOrbLogic.canInsertInput(inv, s, key.toStack(1));
+                    }
 
-                @Override
-                public long insert(AEItemKey key, long amount, boolean simulate) {
-                    if (simulate) {
-                        return empty() && supports(key) ? 1 : 0;
+                    @Override
+                    public long insert(AEItemKey key, long amount, boolean simulate) {
+                        if (simulate) {
+                            return empty() && supports(key) ? 1 : 0;
+                        }
+                        if (!empty() || !supports(key)) {
+                            return 0;
+                        }
+                        boolean saved = settling;
+                        settling = true;
+                        try {
+                            inv.setStackInSlot(s, key.toStack(1));
+                        } finally {
+                            settling = saved;
+                        }
+                        return 1;
                     }
-                    if (!empty() || !supports(key)) {
-                        return 0;
-                    }
-                    boolean saved = completing;
-                    completing = true;
-                    try {
-                        inv.setStackInSlot(s, key.toStack(1));
-                    } finally {
-                        completing = saved;
-                    }
-                    return 1;
-                }
 
-                @Override
-                public void restore() {
-                    boolean saved = completing;
-                    completing = true;
-                    try {
-                        inv.setStackInSlot(s, ItemStack.EMPTY);
-                    } finally {
-                        completing = saved;
+                    @Override
+                    public void restore() {
+                        boolean saved = settling;
+                        settling = true;
+                        try {
+                            inv.setStackInSlot(s, ItemStack.EMPTY);
+                        } finally {
+                            settling = saved;
+                        }
                     }
-                }
-            });
+                });
+            }
         }
         return ports;
     }
 
     /**
-     * CPU settlement: returnInv first (AE2 protocol), remainder provider / OUTPUT.
-     * autoExport OFF: do not enter returnInv / provider returnInv (those inject
-     * to the network) — products stay in OUTPUT.
+     * CPU settlement: returnInv first (AE2 protocol, NETWORK eject mode only),
+     * remainder provider / page OUTPUT.
      */
     @Override
-    protected boolean canSettleResult(ItemStack result) {
-        if (!inputFromCpuOrder || !autoExportEnabled()) {
-            return super.canSettleResult(result);
+    protected boolean canSettleResult(CraftThread page, ItemStack result) {
+        if (!OrbEjectRules.allowsCpuReturn(ejectMode, page.fromCpuOrder)) {
+            return super.canSettleResult(page, result);
         }
         ItemStack afterCpu = simulateCpuReturn(result);
         if (afterCpu.isEmpty()) {
             return true;
         }
-        return super.canSettleResult(afterCpu);
+        return super.canSettleResult(page, afterCpu);
     }
 
     @Override
-    protected void settleResult(ItemStack result) {
-        if (!inputFromCpuOrder || !autoExportEnabled()) {
-            inputFromCpuOrder = false;
-            providerReturnSide = null;
-            if (!tryPlaceResult(result)) {
-                AppliedPowah.LOG.error(
-                        "ME orb settle lost product {} x{} at {} (OUTPUT full)",
-                        result.getItem(), result.getCount(), worldPosition);
-                net.minecraft.world.Containers.dropItemStack(
-                        level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), result);
-            }
+    protected void settleResult(CraftThread page, ItemStack result) {
+        if (!OrbEjectRules.allowsCpuReturn(ejectMode, page.fromCpuOrder)) {
+            super.settleResult(page, result);
             return;
         }
-        inputFromCpuOrder = false;
         try {
             ItemStack rest = doCpuReturn(result);
             if (!rest.isEmpty()) {
-                rest = providerReturnSide != null ? doProviderReturn(rest) : rest;
+                rest = page.providerReturnSide != null ? doProviderReturn(page, rest) : rest;
             }
-            if (!rest.isEmpty() && !tryPlaceResult(rest)) {
+            if (!rest.isEmpty() && !tryPlaceResult(page, rest)) {
                 AppliedPowah.LOG.error(
-                        "ME orb settle lost product {} x{} at {} (cpu return incomplete)",
-                        rest.getItem(), rest.getCount(), worldPosition);
-                net.minecraft.world.Containers.dropItemStack(
-                        level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), rest);
+                        "ME orb settle lost product {} x{} at {} page {} (cpu return incomplete)",
+                        rest.getItem(), rest.getCount(), worldPosition, pageIndex(page));
+                dropStack(rest);
             }
         } finally {
-            providerReturnSide = null;
+            page.providerReturnSide = null;
+            page.fromCpuOrder = false;
         }
     }
 
@@ -341,7 +363,6 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
     @Override
     public TickingRequest getTickingRequest(IGridNode node) {
         // canBeAlerted=true: auto-export / returnInv / cache fill must wake us
-        // (false made ME auto-export appear dead when idle).
         return new TickingRequest(1, 20, false, true);
     }
 
@@ -357,10 +378,10 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
 
     /**
      * returnInv → network. AE2 doWork path (injectIntoNetwork).
-     * autoExport OFF: do not inject (CPU hangs by design). ON: normal AE2 settle.
+     * Eject OFF: do not inject (CPU hangs by design). NETWORK: normal AE2 settle.
      */
     private void drainReturn(IGridNode node) {
-        if (!autoExportEnabled()) {
+        if (!OrbEjectRules.allowsNetworkPush(ejectMode)) {
             return;
         }
         try {
@@ -395,7 +416,7 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         if (!selfCraft.tick()) {
             return false;
         }
-        if (containRecipe || hasPendingProduct() || completing) {
+        if (containRecipe() || hasPendingProduct() || settling) {
             return false;
         }
         try {
@@ -416,8 +437,8 @@ public class MeEnergizingOrbBlockEntity extends AdvancedEnergizingOrbBlockEntity
         }
     }
 
-    // ITEM_HANDLER: inherit base RangedWrapper — every face can access craft slots
-    // (开发总报告 §1.2 / Q16). Do not empty this capability.
+    // ITEM_HANDLER: inherit base CombinedItemHandler — every face can access all
+    // page craft slots (开发总报告 §1.2 / Q16). Do not empty this capability.
 
     @Override
     public AccessRestriction getPowerFlow() {
